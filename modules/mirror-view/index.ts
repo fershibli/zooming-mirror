@@ -1,1 +1,1 @@
-export { MirrorView } from './src/MirrorView';
+export { MirrorView, type CameraInfo, type MirrorViewProps } from './src/MirrorView';
