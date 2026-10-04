@@ -3,9 +3,10 @@
 **English** · [Português (Brasil)](docs/readme/pt-BR.md)
 
 An Android mirror: the front camera fills the whole screen and you pinch to
-zoom in. There is nothing else on screen — no buttons, no overlay, no status or
-navigation bar. Built with [Expo](https://expo.dev), React Native, TypeScript
-and a small Kotlin view on CameraX.
+zoom in. There is nothing else on screen — no buttons, no status or navigation
+bar — except the zoom level, and only while you pinch. Built with
+[Expo](https://expo.dev), React Native, TypeScript and a small Kotlin view on
+CameraX.
 
 ## Using it
 
@@ -13,6 +14,9 @@ and a small Kotlin view on CameraX.
 - **Pinch out** to zoom in, **pinch in** to zoom back out, up to 10×. The spot
   between your fingers stays put, and moving both fingers pans around.
 - **Drag with one finger** to move around the zoomed image.
+- While a pinch is changing the zoom, a translucent circle low on the screen
+  shows the level with two decimals; it fades out as soon as you let go. A
+  one-finger drag never shows it.
 - The screen stays on while the app is open.
 - Swipe from the edge to bring the system bars back for a moment.
 
@@ -57,7 +61,8 @@ exist in Expo Go. Use the APK from a release or a development build.
 - `src/Mirror.tsx` — asks for the camera permission and shows the mirror.
 - `modules/mirror-view/` — local native module (Kotlin): `MirrorView` binds the
   front camera with CameraX and turns pinches and drags into zoom and pan;
-  `PinchZoom` scales and moves the preview.
+  `PinchZoom` scales and moves the preview, `ZoomIndicator` is the zoom
+  circle.
 - `plugins/` — config plugin injecting the release signing into the generated
   Gradle project.
 

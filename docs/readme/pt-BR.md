@@ -3,10 +3,10 @@
 [English](../../README.md) · **Português (Brasil)**
 
 Um espelho para Android: a câmera frontal ocupa a tela inteira e você faz
-pinça para dar zoom. Não há mais nada na tela — nenhum botão, nenhuma
-sobreposição, nem barra de status ou de navegação. Feito com
-[Expo](https://expo.dev), React Native, TypeScript e uma pequena view em Kotlin
-sobre o CameraX.
+pinça para dar zoom. Não há mais nada na tela — nenhum botão, nem barra de
+status ou de navegação — além do nível de zoom, e só enquanto você faz a
+pinça. Feito com [Expo](https://expo.dev), React Native, TypeScript e uma
+pequena view em Kotlin sobre o CameraX.
 
 ## Uso
 
@@ -15,6 +15,9 @@ sobre o CameraX.
 - **Afaste os dedos** para aproximar e **junte os dedos** para afastar, até 10×.
   O ponto entre os dedos fica parado, e mover os dois dedos desloca a imagem.
 - **Arraste com um dedo** para se mover pela imagem ampliada.
+- Enquanto a pinça muda o zoom, um círculo translúcido na parte de baixo da tela
+  mostra o nível com duas casas decimais; ele some assim que você solta. Arrastar
+  com um dedo nunca o mostra.
 - A tela não apaga enquanto o app está aberto.
 - Deslize a partir da borda para mostrar as barras do sistema por um instante.
 
@@ -60,7 +63,8 @@ existe no Expo Go. Use o APK de uma release ou um development build.
 - `src/Mirror.tsx` — pede a permissão da câmera e mostra o espelho.
 - `modules/mirror-view/` — módulo nativo local (Kotlin): `MirrorView` liga a
   câmera frontal pelo CameraX e transforma pinças e arrastes em zoom e
-  deslocamento; `PinchZoom` escala e move o preview.
+  deslocamento; `PinchZoom` escala e move o preview, e `ZoomIndicator` é o
+  círculo do zoom.
 - `plugins/` — config plugin que injeta a assinatura de release no projeto
   Gradle gerado.
 
