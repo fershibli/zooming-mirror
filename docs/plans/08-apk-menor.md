@@ -12,8 +12,7 @@ arquiteturas, duas delas (x86 e x86_64) só usadas por emuladores.
 - O workflow do APK passa a compilar só `arm64-v8a` e `armeabi-v7a`
   (`-PreactNativeArchitectures=arm64-v8a,armeabi-v7a`). Celulares Android reais
   usam uma dessas duas.
-- Só arm64 deu 28 MB no build local; com as duas o esperado é algo entre 40 e
-  45 MB.
+- Medido no build local: **38,9 MB** com as duas (só arm64 dá 28 MB).
 
 ## Fica para depois
 
@@ -25,4 +24,4 @@ arquiteturas, duas delas (x86 e x86_64) só usadas por emuladores.
 
 ## Pronto quando
 
-- O APK da próxima release sai sem x86/x86_64 e menor que 50 MB.
+- O APK da próxima release sai sem x86/x86_64, com cerca de 39 MB.
