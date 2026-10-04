@@ -3,7 +3,9 @@
     "name": "Zooming Mirror",
     "slug": "zooming-mirror",
     "version": "1.0.0",
-    "platforms": ["android"],
+    "platforms": [
+      "android"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -25,7 +27,9 @@
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.VIBRATE"
       ],
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       [
