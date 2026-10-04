@@ -11,9 +11,12 @@ cada direção.
 
 ## Como
 
-- No `Preview` do CameraX, um `ResolutionSelector` que pede até 3840×2160 em
-  16:9 (`ResolutionStrategy` com fallback para a resolução menor mais próxima)
-  e `PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE`.
+- Por padrão o CameraX limita o preview ao tamanho "PREVIEW" (a tela ou 1080p,
+  o que for menor). Esse limite cai quando o app passa a própria
+  `ResolutionStrategy`: o `Preview` pede até 3840×2160 em 16:9, com fallback
+  para a resolução menor mais próxima.
+- Fica a preferência padrão por taxa de quadros: só entram tamanhos que a
+  câmera entrega a 30 fps, sem as resoluções "lentas" de foto.
 - A `TextureView` amostra a textura da câmera direto na composição, com a
   transformação final aplicada, então a ampliação aproveita a resolução extra
   sem mexer no resto do caminho.
