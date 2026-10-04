@@ -1,0 +1,106 @@
+name: Android APK
+
+# Triggered by the "Release" workflow (workflow_dispatch), by a manual dispatch
+# or by a `v*` tag pushed by hand. Never runs on a pull request: the APK takes
+# a long time and only makes sense for a version that is already published.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Annotated version tag (vX.Y.Z)
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    name: Compilar e publicar APK assinado
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # The runner image already carries the Android SDK with its licences
+      # accepted. android-actions/setup-android additionally asks for the
+      # retired `tools` package, which no longer resolves.
+      - name: Conferir o Android SDK do runner
+        run: |
+          test -d "$ANDROID_HOME/platform-tools"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar projeto Android (CNG)
+        run: npx expo prebuild --platform android --clean
+
+      # With no secrets configured the build falls back to the throwaway
+      # keystore in signing/, so the APK installs on a phone without anyone
+      # having to touch the repository settings. Set the four secrets to sign
+      # with a real key instead — the APK signature changes when you do, so the
+      # previous install has to be removed first.
+      - name: Preparar keystore de release
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+            echo "Keystore vinda dos secrets."
+          else
+            cp signing/temp-release.keystore android/app/release.keystore
+            echo "::warning::Usando a keystore temporária versionada em signing/."
+          fi
+          test -s android/app/release.keystore
+
+      - name: Compilar APK assinado
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'zooming-mirror' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}
+        run: |
+          cd android
+          ./gradlew app:assembleRelease --no-daemon \
+            -PMYAPP_UPLOAD_STORE_FILE=release.keystore \
+            -PMYAPP_UPLOAD_STORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
+            -PMYAPP_UPLOAD_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
+            -PMYAPP_UPLOAD_KEY_PASSWORD="$ANDROID_KEY_PASSWORD"
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          test -s "$APK"
+
+      - name: Publicar GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${RELEASE_TAG}"
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          ASSET="zooming-mirror-${TAG}.apk"
+          cp "$APK" "$ASSET"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" --title "$TAG" --notes "Android APK for ${TAG}."
+          fi

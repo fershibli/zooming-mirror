@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+# A new push on the same PR/branch cancels the previous verification.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Catches anything that only breaks at bundle time, such as a bad import
+      # into the local native module.
+      - name: Empacotar o bundle Android
+        run: npx expo export --platform android --output-dir /tmp/expo-export
+
+      # The release signing plugin rewrites android/app/build.gradle, so a
+      # mistake there would only surface in the APK workflow 40 minutes later.
+      - name: Gerar projeto Android (CNG)
+        run: npx expo prebuild --platform android --clean --no-install
