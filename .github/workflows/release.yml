@@ -1,0 +1,71 @@
+name: Release
+
+# `main` is the published line. Every push here becomes a new version and
+# triggers the "Android APK" workflow, which shows up with its own runs in the
+# Actions tab instead of being buried inside this release.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Versionar e publicar tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Avoids running on the release commit itself.
+    if: "!contains(github.event.head_commit.message, 'chore(release)')"
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # A push landing while this run is queued leaves the release commit
+      # unpushable. That push brings its own release run, so this one steps
+      # aside instead of tagging a version it cannot publish.
+      - name: Conferir se a main ainda é esta
+        id: guard
+        run: |
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "A main avançou desde o checkout; quem versiona é a execução seguinte."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configurar autoria dos commits
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          git config user.name "FerShibli"
+          git config user.email "fernandoluiz.1991@gmail.com"
+
+      - name: Gerar versão e changelog
+        id: bump
+        if: steps.guard.outputs.skip != 'true'
+        run: node scripts/release.js
+
+      - name: Publicar versão e tag
+        if: steps.bump.outputs.tag != ''
+        run: git push --atomic --follow-tags origin main
+
+      # The push above uses the GITHUB_TOKEN and therefore does not fire the tag
+      # trigger. The workflow_dispatch is the documented exception: it creates a
+      # new run, listed under "Android APK".
+      - name: Disparar o build do APK
+        if: steps.bump.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: gh workflow run android-apk.yml --ref main --field tag="$TAG"
