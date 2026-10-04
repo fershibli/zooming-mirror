@@ -12,6 +12,7 @@ and a small Kotlin view on CameraX.
 - Open the app and allow the camera. The front camera shows up full screen.
 - **Pinch out** to zoom in, **pinch in** to zoom back out, up to 10×. The spot
   between your fingers stays put, and moving both fingers pans around.
+- **Drag with one finger** to move around the zoomed image.
 - The screen stays on while the app is open.
 - Swipe from the edge to bring the system bars back for a moment.
 
@@ -55,7 +56,8 @@ exist in Expo Go. Use the APK from a release or a development build.
 - `App.tsx` — the root; hides the system bars and renders the mirror.
 - `src/Mirror.tsx` — asks for the camera permission and shows the mirror.
 - `modules/mirror-view/` — local native module (Kotlin): `MirrorView` binds the
-  front camera with CameraX, `PinchZoom` scales and pans the preview.
+  front camera with CameraX and turns pinches and drags into zoom and pan;
+  `PinchZoom` scales and moves the preview.
 - `plugins/` — config plugin injecting the release signing into the generated
   Gradle project.
 

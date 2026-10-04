@@ -9,7 +9,7 @@ import kotlin.math.min
  * every front camera, including the many that have no zoom of their own.
  *
  * The point under the fingers stays under the fingers, moving them pans, and
- * the image always covers the whole screen.
+ * the image always covers the whole screen, so at 1× there is nothing to pan.
  */
 class PinchZoom(private val target: View) {
   var scale = 1f
@@ -31,6 +31,11 @@ class PinchZoom(private val target: View) {
 
     scale = next
     apply(translationX, translationY)
+  }
+
+  /** Moves the image by the finger's travel, without changing the zoom. */
+  fun panBy(dx: Float, dy: Float) {
+    apply(target.translationX + dx, target.translationY + dy)
   }
 
   /** Re-applies the transform after a resize, keeping the image on screen. */

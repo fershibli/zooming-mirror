@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
 
 /**
  * The front camera filling the view, with nothing on top of it. Pinching
- * zooms the image itself (see [PinchZoom]); the camera stays at 1×.
+ * zooms the image itself (see [PinchZoom]); the camera stays at 1×. One
+ * finger drags the image around.
  */
 @SuppressLint("ViewConstructor")
 class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
@@ -41,6 +42,8 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
 
   private var lastFocusX = 0f
   private var lastFocusY = 0f
+  private var lastDragX = 0f
+  private var lastDragY = 0f
   private val scaleDetector = ScaleGestureDetector(
     context,
     object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -63,7 +66,10 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
         return true
       }
     }
-  )
+  ).apply {
+    // Double-tap-and-drag would also zoom with one finger, which is now a drag.
+    isQuickScaleEnabled = false
+  }
 
   init {
     // React Native does not lay out views added natively, so the TextureView
@@ -113,6 +119,24 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
   @SuppressLint("ClickableViewAccessibility")
   override fun onTouchEvent(event: MotionEvent): Boolean {
     scaleDetector.onTouchEvent(event)
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        lastDragX = event.x
+        lastDragY = event.y
+      }
+      // Back to one finger after a pinch: drag on from where that finger is,
+      // or the image would jump by the distance between the two.
+      MotionEvent.ACTION_POINTER_UP -> if (event.pointerCount == 2) {
+        val remaining = 1 - event.actionIndex
+        lastDragX = event.getX(remaining)
+        lastDragY = event.getY(remaining)
+      }
+      MotionEvent.ACTION_MOVE -> if (event.pointerCount == 1) {
+        zoom.panBy(event.x - lastDragX, event.y - lastDragY)
+        lastDragX = event.x
+        lastDragY = event.y
+      }
+    }
     return true
   }
 

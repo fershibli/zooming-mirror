@@ -14,6 +14,7 @@ sobre o CameraX.
   cheia.
 - **Afaste os dedos** para aproximar e **junte os dedos** para afastar, até 10×.
   O ponto entre os dedos fica parado, e mover os dois dedos desloca a imagem.
+- **Arraste com um dedo** para se mover pela imagem ampliada.
 - A tela não apaga enquanto o app está aberto.
 - Deslize a partir da borda para mostrar as barras do sistema por um instante.
 
@@ -58,7 +59,8 @@ existe no Expo Go. Use o APK de uma release ou um development build.
 - `App.tsx` — a raiz; esconde as barras do sistema e mostra o espelho.
 - `src/Mirror.tsx` — pede a permissão da câmera e mostra o espelho.
 - `modules/mirror-view/` — módulo nativo local (Kotlin): `MirrorView` liga a
-  câmera frontal pelo CameraX e `PinchZoom` escala e desloca o preview.
+  câmera frontal pelo CameraX e transforma pinças e arrastes em zoom e
+  deslocamento; `PinchZoom` escala e move o preview.
 - `plugins/` — config plugin que injeta a assinatura de release no projeto
   Gradle gerado.
 
