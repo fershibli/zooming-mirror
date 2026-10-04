@@ -24,8 +24,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * The front camera filling the view, with nothing on top of it. Pinching
- * zooms the image itself (see [PinchZoom]); the camera stays at 1×.
+ * The front camera filling the view. Pinching zooms the image itself (see
+ * [PinchZoom]) while the camera stays at 1×, and one finger drags the image
+ * around. The only thing ever drawn on top is the zoom level, during a pinch.
  */
 @SuppressLint("ViewConstructor")
 class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
@@ -36,17 +37,21 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
     scaleType = PreviewView.ScaleType.FILL_CENTER
   }
   private val zoom = PinchZoom(previewView)
+  private val indicator = ZoomIndicator(context)
   private var cameraProvider: ProcessCameraProvider? = null
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
   private var lastFocusX = 0f
   private var lastFocusY = 0f
+  private var lastDragX = 0f
+  private var lastDragY = 0f
   private val scaleDetector = ScaleGestureDetector(
     context,
     object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
       override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
         lastFocusX = detector.focusX
         lastFocusY = detector.focusY
+        indicator.show(zoom.scale)
         return true
       }
 
@@ -60,10 +65,18 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
         )
         lastFocusX = detector.focusX
         lastFocusY = detector.focusY
+        indicator.update(zoom.scale)
         return true
       }
+
+      override fun onScaleEnd(detector: ScaleGestureDetector) {
+        indicator.hide()
+      }
     }
-  )
+  ).apply {
+    // Double-tap-and-drag would also zoom with one finger, which is now a drag.
+    isQuickScaleEnabled = false
+  }
 
   init {
     // React Native does not lay out views added natively, so the TextureView
@@ -82,6 +95,8 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
       previewView,
       ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     )
+    // A sibling of the preview, so the zoom never scales or moves it.
+    addView(indicator, ViewGroup.LayoutParams(indicator.diameter, indicator.diameter))
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -102,6 +117,16 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
       )
       previewView.layout(0, 0, width, height)
       zoom.refresh()
+
+      val size = indicator.diameter
+      val centreY = (height * (1 - INDICATOR_FROM_BOTTOM)).toInt()
+      indicator.measure(
+        MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY)
+      )
+      val indicatorLeft = (width - size) / 2
+      val indicatorTop = centreY - size / 2
+      indicator.layout(indicatorLeft, indicatorTop, indicatorLeft + size, indicatorTop + size)
     }
   }
 
@@ -113,6 +138,24 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
   @SuppressLint("ClickableViewAccessibility")
   override fun onTouchEvent(event: MotionEvent): Boolean {
     scaleDetector.onTouchEvent(event)
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        lastDragX = event.x
+        lastDragY = event.y
+      }
+      // Back to one finger after a pinch: drag on from where that finger is,
+      // or the image would jump by the distance between the two.
+      MotionEvent.ACTION_POINTER_UP -> if (event.pointerCount == 2) {
+        val remaining = 1 - event.actionIndex
+        lastDragX = event.getX(remaining)
+        lastDragY = event.getY(remaining)
+      }
+      MotionEvent.ACTION_MOVE -> if (event.pointerCount == 1) {
+        zoom.panBy(event.x - lastDragX, event.y - lastDragY)
+        lastDragX = event.x
+        lastDragY = event.y
+      }
+    }
     return true
   }
 
@@ -154,5 +197,8 @@ class MirrorView(context: Context, appContext: AppContext) : ExpoView(context, a
 
   companion object {
     private const val TAG = "MirrorView"
+
+    /** Height of the indicator's centre, as a fraction measured from the bottom. */
+    private const val INDICATOR_FROM_BOTTOM = 0.27f
   }
 }
