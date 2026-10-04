@@ -12,7 +12,7 @@ sobre o CameraX.
 
 - Abra o app e permita o acesso à câmera. A câmera frontal aparece em tela
   cheia.
-- **Afaste os dedos** para aproximar e **junte os dedos** para afastar, até 5×.
+- **Afaste os dedos** para aproximar e **junte os dedos** para afastar, até 10×.
   O ponto entre os dedos fica parado, e mover os dois dedos desloca a imagem.
 - A tela não apaga enquanto o app está aberto.
 - Deslize a partir da borda para mostrar as barras do sistema por um instante.

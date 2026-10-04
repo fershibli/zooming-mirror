@@ -10,7 +10,7 @@ and a small Kotlin view on CameraX.
 ## Using it
 
 - Open the app and allow the camera. The front camera shows up full screen.
-- **Pinch out** to zoom in, **pinch in** to zoom back out, up to 5×. The spot
+- **Pinch out** to zoom in, **pinch in** to zoom back out, up to 10×. The spot
   between your fingers stays put, and moving both fingers pans around.
 - The screen stays on while the app is open.
 - Swipe from the edge to bring the system bars back for a moment.

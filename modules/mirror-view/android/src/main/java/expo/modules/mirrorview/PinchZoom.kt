@@ -51,6 +51,6 @@ class PinchZoom(private val target: View) {
 
   companion object {
     const val MIN_SCALE = 1f
-    const val MAX_SCALE = 5f
+    const val MAX_SCALE = 10f
   }
 }
