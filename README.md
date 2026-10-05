@@ -4,9 +4,9 @@
 
 An Android mirror: the front camera fills the whole screen and you pinch to
 zoom in. There is nothing else on screen — no buttons, no status or navigation
-bar — except the zoom level, and only while you pinch. Built with
-[Expo](https://expo.dev), React Native, TypeScript and a small Kotlin view on
-CameraX.
+bar — except a value while it changes (the zoom or the light) and the settings
+when you ask for them. Built with [Expo](https://expo.dev), React Native,
+TypeScript and a small Kotlin view on CameraX.
 
 ## Using it
 
@@ -14,11 +14,31 @@ CameraX.
 - **Pinch out** to zoom in, **pinch in** to zoom back out, up to 10×. The spot
   between your fingers stays put, and moving both fingers pans around.
 - **Drag with one finger** to move around the zoomed image.
-- While a pinch is changing the zoom, a translucent circle low on the screen
-  shows the level with two decimals; it fades out as soon as you let go. A
-  one-finger drag never shows it.
+- **Double tap** to go to 1×, and again to go back to the zoom you were at.
+- **Long press** to freeze the image; zoom and drag still work on it. Long
+  press again to go live.
+- **Slide up or down along the right edge** to make the image brighter or
+  darker.
+- **Swipe inwards from the right edge**, at the height of the zoom circle, to
+  show a gear; tap it for the settings.
+- While the zoom or the light changes, a translucent circle low on the screen
+  shows the value, and fades out as soon as you let go. A one-finger drag
+  never shows it.
 - The screen stays on while the app is open.
-- Swipe from the edge to bring the system bars back for a moment.
+- Swipe from the top or bottom edge to bring the system bars back for a moment.
+
+### Settings
+
+| Setting            | Default | What it does                                                       |
+| ------------------ | ------- | ------------------------------------------------------------------ |
+| Automatic light    | on      | While zoomed, exposure and white balance follow what is on screen. |
+| Face priority      | on      | The camera's own face-priority metering, where it has one.         |
+| High resolution    | on      | Asks the camera for up to 4K instead of its default (≤ 1080p).     |
+| Sharpening (GPU)   | off     | Experimental: bicubic enlarging plus edge sharpening on the GPU.   |
+| How others see you | off     | Shows the image without mirroring it.                              |
+
+Settings the phone cannot do are greyed out. The bottom of the screen shows the
+size the camera actually delivers and the app version.
 
 If the camera permission was denied, the screen stays black: tap it to be asked
 again, or to land on the app settings once Android stops asking.
@@ -39,11 +59,29 @@ npm run android   # expo run:android — needs the Android SDK locally
 ### How the zoom works
 
 Most front cameras have no zoom of their own, so the app does not ask the camera
-for one. The camera keeps streaming at 1× into a `TextureView`, and the pinch
-scales and moves that view instead — the same on every phone. A `SurfaceView`,
-the faster default, does not follow view transforms, which is why the preview
-runs in CameraX's `COMPATIBLE` mode. The stream is requested at 16:9 so a
-portrait screen crops as little of the picture as possible.
+for one. The camera keeps streaming at 1× and the zoom enlarges the picture —
+the same on every phone. The stream is requested at 16:9, so a portrait screen
+crops as little of it as possible, and at up to 4K when **High resolution** is
+on: CameraX caps the preview at 1080p unless the app passes its own resolution
+strategy.
+
+The picture reaches the screen one of two ways:
+
+- **Standard:** CameraX's `PreviewView` in `COMPATIBLE` mode (a `TextureView`;
+  a `SurfaceView` does not follow view transforms), scaled and moved as a whole
+  view. The GPU composes the camera texture straight to the screen, so a big
+  stream still adds detail when zoomed.
+- **GPU (experimental):** an OpenGL ES pass of its own. Every screen pixel is
+  mapped through the zoom to the camera frame and sampled with Catmull-Rom
+  (bicubic) when enlarging, then a second pass applies contrast-adaptive
+  sharpening, stronger the further it zooms. If the GPU path cannot start, the
+  app falls back to the standard one and greys the setting out.
+
+With **Automatic light**, the camera meters exposure and white balance on the
+visible area after every gesture. Cameras that cannot take a metering area get
+a slow loop instead, which reads the brightness of what is on screen and nudges
+the exposure compensation. The manual slide on the right edge adds its own
+compensation on top.
 
 The camera view is a local native module (`modules/mirror-view`), so it does not
 exist in Expo Go. Use the APK from a release or a development build.
@@ -61,11 +99,18 @@ Portuguese), one file per plan.
 ### Architecture
 
 - `App.tsx` — the root; hides the system bars and renders the mirror.
-- `src/Mirror.tsx` — asks for the camera permission and shows the mirror.
-- `modules/mirror-view/` — local native module (Kotlin): `MirrorView` binds the
-  front camera with CameraX and turns pinches and drags into zoom and pan;
-  `PinchZoom` scales and moves the preview, `ZoomIndicator` is the zoom
-  circle.
+- `src/Mirror.tsx` — asks for the camera permission and shows the mirror, the
+  gear and the settings.
+- `src/Settings.tsx`, `src/GearButton.tsx` — the settings screen and the hidden
+  gear that opens it; `src/store/settings.ts` keeps the settings (Zustand +
+  AsyncStorage).
+- `modules/mirror-view/` — local native module (Kotlin):
+  - `MirrorView` binds the camera and ties everything together;
+  - `MirrorGestures` turns touches into zoom, pan, double tap, freeze, the
+    exposure slide and the gear swipe;
+  - `PinchZoom` is the zoom as numbers; `PreviewRenderer` and `GlRenderer`
+    (with `GlShaders`) turn it into pixels;
+  - `Exposure` meters the light, `ValueIndicator` is the translucent circle.
 - `plugins/` — config plugin injecting the release signing into the generated
   Gradle project.
 

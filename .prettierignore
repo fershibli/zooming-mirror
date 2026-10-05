@@ -3,3 +3,5 @@ ios
 dist
 node_modules
 package-lock.json
+# Rewritten by scripts/release.js on every release, in its own format
+app.json

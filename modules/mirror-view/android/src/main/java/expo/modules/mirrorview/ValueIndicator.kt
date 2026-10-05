@@ -9,15 +9,17 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.widget.TextView
 import java.util.Locale
+import kotlin.math.abs
 
 /**
- * The zoom level in a translucent circle, visible only while a pinch is
- * changing it. Two decimals in the phone's number format, so 2,35× in
- * Portuguese.
+ * A translucent circle low on the screen with a single value in it: the zoom
+ * while it changes, the exposure while it is slid, or a brief freeze symbol.
+ * Numbers follow the phone's format, so 2,35× in Portuguese.
  */
 @SuppressLint("AppCompatCustomView", "ViewConstructor")
-class ZoomIndicator(context: Context) : TextView(context) {
+class ValueIndicator(context: Context) : TextView(context) {
   val diameter = dp(96f).toInt()
+  private val hideLater = Runnable { hide() }
 
   init {
     background = GradientDrawable().apply {
@@ -34,19 +36,27 @@ class ZoomIndicator(context: Context) : TextView(context) {
     alpha = 0f
   }
 
-  fun show(scale: Float) {
-    update(scale)
+  fun show(value: String) {
+    removeCallbacks(hideLater)
+    text = value
     animate().cancel()
     animate().alpha(1f).setDuration(FADE_IN_MS).start()
   }
 
-  fun update(scale: Float) {
-    text = String.format(Locale.getDefault(), "%.2f×", scale)
+  fun update(value: String) {
+    text = value
   }
 
   fun hide() {
+    removeCallbacks(hideLater)
     animate().cancel()
     animate().alpha(0f).setDuration(FADE_OUT_MS).start()
+  }
+
+  /** Shows [value] and hides it on its own a moment later. */
+  fun flash(value: String) {
+    show(value)
+    postDelayed(hideLater, FLASH_MS)
   }
 
   private fun dp(value: Float) =
@@ -55,5 +65,14 @@ class ZoomIndicator(context: Context) : TextView(context) {
   companion object {
     private const val FADE_IN_MS = 80L
     private const val FADE_OUT_MS = 200L
+    private const val FLASH_MS = 700L
+
+    const val FROZEN = "❚❚"
+    const val LIVE = "▶︎"
+
+    fun zoom(scale: Float): String = String.format(Locale.getDefault(), "%.2f×", scale)
+
+    fun exposure(ev: Float): String =
+      if (abs(ev) < 0.05f) "0 EV" else String.format(Locale.getDefault(), "%+.1f EV", ev)
   }
 }

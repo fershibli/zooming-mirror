@@ -52,7 +52,8 @@
           "hidden": true
         }
       ],
-      "./plugins/with-android-release-signing.js"
+      "./plugins/with-android-release-signing.js",
+      "expo-localization"
     ]
   }
 }

@@ -1,8 +1,12 @@
 import { useKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, PermissionsAndroid, Pressable, StyleSheet } from 'react-native';
+import { AppState, Linking, PermissionsAndroid, Pressable, StyleSheet, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
-import { MirrorView } from '../modules/mirror-view';
+import { type CameraInfo, MirrorView } from '../modules/mirror-view';
+import { GearButton } from './GearButton';
+import { Settings } from './Settings';
+import { useSettings } from './store/settings';
 
 type Access = 'checking' | 'granted' | 'denied' | 'blocked';
 
@@ -20,6 +24,20 @@ export function Mirror() {
   useKeepAwake();
 
   const [access, setAccess] = useState<Access>('checking');
+  const [gearVisible, setGearVisible] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [camera, setCamera] = useState<CameraInfo | null>(null);
+  const settings = useSettings(
+    useShallow(({ autoLight, facePriority, highResolution, gpuSharpening, trueView }) => ({
+      autoLight,
+      facePriority,
+      highResolution,
+      gpuSharpening,
+      trueView,
+    })),
+  );
+  // The camera waits for the saved settings, so it starts once, as they say.
+  const hydrated = useSettings((state) => state.hydrated);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,8 +77,31 @@ export function Mirror() {
     }
   }, [access]);
 
-  if (access === 'granted') {
-    return <MirrorView style={styles.fill} />;
+  const showGear = useCallback(() => setGearVisible(true), []);
+  const hideGear = useCallback(() => setGearVisible(false), []);
+  const openSettings = useCallback(() => {
+    setGearVisible(false);
+    setSettingsOpen(true);
+  }, []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  if (access === 'granted' && hydrated) {
+    return (
+      <View style={styles.fill}>
+        <MirrorView
+          style={StyleSheet.absoluteFill}
+          {...settings}
+          onSettingsGesture={showGear}
+          onCameraInfo={(event) => setCamera(event.nativeEvent)}
+        />
+        <GearButton
+          visible={gearVisible && !settingsOpen}
+          onPress={openSettings}
+          onTimeout={hideGear}
+        />
+        <Settings visible={settingsOpen} camera={camera} onClose={closeSettings} />
+      </View>
+    );
   }
   return <Pressable style={styles.fill} onPress={retry} />;
 }
