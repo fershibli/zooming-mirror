@@ -57,6 +57,9 @@ existe no Expo Go. Use o APK de uma release ou um development build.
 | `npm run format`    | Prettier                                           |
 | `npm run release`   | Script de versionamento (`-- --dry-run` p/ ensaio) |
 
+As melhorias planejadas e possíveis ficam em [`docs/plans`](../plans), um
+arquivo por plano.
+
 ### Arquitetura
 
 - `App.tsx` — a raiz; esconde as barras do sistema e mostra o espelho.

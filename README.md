@@ -55,6 +55,9 @@ exist in Expo Go. Use the APK from a release or a development build.
 | `npm run format`    | Prettier                                       |
 | `npm run release`   | Versioning script (`-- --dry-run` to rehearse) |
 
+Planned and possible improvements live in [`docs/plans`](docs/plans) (in
+Portuguese), one file per plan.
+
 ### Architecture
 
 - `App.tsx` — the root; hides the system bars and renders the mirror.
