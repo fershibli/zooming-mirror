@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.2.0 (2026-10-05)
+
+### Novidades
+
+- a hidden gear opens the settings (9074020)
+- light that follows the zoom, freeze, double tap and a gpu path (cc490ae)
+
 ## v1.1.0 (2026-10-04)
 
 ### Novidades

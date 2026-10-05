@@ -2,7 +2,7 @@
   "expo": {
     "name": "Zooming Mirror",
     "slug": "zooming-mirror",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "platforms": [
       "android"
     ],
@@ -12,7 +12,7 @@
     "backgroundColor": "#000000",
     "android": {
       "package": "com.fershibli.zoomingmirror",
-      "versionCode": 1001000,
+      "versionCode": 1002000,
       "adaptiveIcon": {
         "backgroundColor": "#101418",
         "foregroundImage": "./assets/android-icon-foreground.png",
