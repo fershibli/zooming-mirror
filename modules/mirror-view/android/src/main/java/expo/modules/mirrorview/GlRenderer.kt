@@ -266,8 +266,14 @@ class GlRenderer(
 
     request.setTransformationInfoListener(glExecutor) { info ->
       rotationDegrees = info.rotationDegrees
-      displayToBuffer =
-        if (info.hasCameraTransform()) IDENTITY else displayToBuffer(info.rotationDegrees, info.isMirroring)
+      displayToBuffer = if (info.hasCameraTransform()) {
+        // The texture matrix already turns the frame upright, mirrored, for
+        // the phone held the right way up; what is left is the display's own
+        // rotation (upside down: 180°), undone the way PreviewView does it.
+        displayToBuffer((360 - surfaceRotationDegrees(info.targetRotation)) % 360, false)
+      } else {
+        displayToBuffer(info.rotationDegrees, info.isMirroring)
+      }
       updateCrop()
       render()
     }
@@ -599,6 +605,13 @@ class GlRenderer(
         else -> rowMajor(1f, 0f, 0f, 0f, 1f, 0f)
       }
       return columnMajor(multiply(unrotate, mirror))
+    }
+
+    private fun surfaceRotationDegrees(rotation: Int) = when (rotation) {
+      Surface.ROTATION_90 -> 90
+      Surface.ROTATION_180 -> 180
+      Surface.ROTATION_270 -> 270
+      else -> 0
     }
 
     private fun rowMajor(a: Float, b: Float, c: Float, d: Float, e: Float, f: Float) =

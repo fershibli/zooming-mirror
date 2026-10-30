@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Rect
+import android.hardware.display.DisplayManager
 import android.util.Log
 import android.util.Size
 import android.view.HapticFeedbackConstants
@@ -66,6 +67,22 @@ class MirrorView(context: Context, appContext: AppContext) :
   private var laidOutWidth = 0
   private var laidOutHeight = 0
   private var animator: ValueAnimator? = null
+
+  // The activity is portrait either way up and handles its own configuration
+  // changes, so turning the phone over rotates the display without a new
+  // layout: only this listener hears it, and the camera has to be told.
+  private val displayManager = context.getSystemService(DisplayManager::class.java)
+  private val displayListener = object : DisplayManager.DisplayListener {
+    override fun onDisplayAdded(displayId: Int) = Unit
+
+    override fun onDisplayRemoved(displayId: Int) = Unit
+
+    override fun onDisplayChanged(displayId: Int) {
+      if (displayId == display?.displayId) {
+        updateTargetRotation()
+      }
+    }
+  }
 
   /** The last zoomed state, which a double tap at 1× goes back to. */
   private var lastZoomed: FloatArray? = null
@@ -133,8 +150,23 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
+    displayManager.registerDisplayListener(displayListener, null)
     if (settingsApplied) {
       bindCamera()
+    }
+  }
+
+  override fun onDetachedFromWindow() {
+    displayManager.unregisterDisplayListener(displayListener)
+    super.onDetachedFromWindow()
+  }
+
+  /** Keeps the picture upright on screen when the phone turns upside down. */
+  private fun updateTargetRotation() {
+    val rotation = display?.rotation ?: return
+    val preview = preview ?: return
+    if (preview.targetRotation != rotation) {
+      preview.targetRotation = rotation
     }
   }
 
@@ -357,6 +389,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   fun release() {
+    displayManager.unregisterDisplayListener(displayListener)
     animator?.cancel()
     removeCallbacks(meterSoon)
     scope.cancel()
