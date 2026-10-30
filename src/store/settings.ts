@@ -20,7 +20,27 @@ export type Settings = {
   gpuSharpening: boolean;
   /** Not mirrored: how others see you. */
   trueView: boolean;
+  /** A light tick when the pinch reaches 1× or the top zoom. */
+  zoomHaptics: boolean;
 };
+
+/** Everything a fresh install starts with; saved settings are merged over it. */
+const DEFAULTS: Settings = {
+  autoLight: true,
+  lightSensitivity: 2,
+  facePriority: true,
+  highResolution: true,
+  gpuSharpening: false,
+  trueView: false,
+  zoomHaptics: true,
+};
+
+const KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];
+
+/** Just the settings out of the store's state, for saving and for the camera view. */
+export function pickSettings(state: Settings): Settings {
+  return Object.fromEntries(KEYS.map((key) => [key, state[key]])) as Settings;
+}
 
 /** The settings that are a plain switch. */
 export type ToggleKey = {
@@ -35,33 +55,14 @@ type SettingsState = Settings & {
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
-      autoLight: true,
-      lightSensitivity: 2,
-      facePriority: true,
-      highResolution: true,
-      gpuSharpening: false,
-      trueView: false,
+      ...DEFAULTS,
       hydrated: false,
       setSetting: (key, value) => set({ [key]: value } as Pick<Settings, typeof key>),
     }),
     {
       name: 'zooming-mirror/settings',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({
-        autoLight,
-        lightSensitivity,
-        facePriority,
-        highResolution,
-        gpuSharpening,
-        trueView,
-      }) => ({
-        autoLight,
-        lightSensitivity,
-        facePriority,
-        highResolution,
-        gpuSharpening,
-        trueView,
-      }),
+      partialize: (state) => pickSettings(state),
       onRehydrateStorage: () => () => {
         useSettings.setState({ hydrated: true });
       },

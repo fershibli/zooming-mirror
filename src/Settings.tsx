@@ -20,6 +20,9 @@ import { SENSITIVITY_LEVELS, type ToggleKey, useSettings } from './store/setting
 /** The switches below the light ones. */
 const ORDER: ToggleKey[] = ['facePriority', 'highResolution', 'gpuSharpening', 'trueView'];
 
+/** The zoom's own extras, each one easy to turn off. */
+const ZOOM_ORDER: ToggleKey[] = ['zoomHaptics'];
+
 /** False only when the camera said it cannot; unknown counts as available. */
 function isAvailable(key: ToggleKey, camera: CameraInfo | null): boolean {
   if (!camera) {
@@ -100,6 +103,11 @@ export function Settings({ visible, camera, onClose }: Props) {
           <SettingRow key={key} setting={key} available={isAvailable(key, camera)} />
         ))}
         {camera?.gpuFailed ? <Text style={styles.warning}>{strings.gpuFailed}</Text> : null}
+
+        <Text style={styles.section}>{strings.zoomTitle}</Text>
+        {ZOOM_ORDER.map((key) => (
+          <SettingRow key={key} setting={key} available />
+        ))}
 
         <Text style={styles.section}>{strings.gesturesTitle}</Text>
         {strings.gestures.map(([gesture, effect]) => (

@@ -12,6 +12,7 @@ type Strings = {
     levels: [name: string, detail: string][];
     onlyWithAutoLight: string;
   };
+  zoomTitle: string;
   unsupported: string;
   gpuFailed: string;
   gesturesTitle: string;
@@ -46,6 +47,10 @@ const pt: Strings = {
       title: 'Como os outros te veem',
       detail: 'Mostra a imagem sem espelhar.',
     },
+    zoomHaptics: {
+      title: 'Vibrar nos limites',
+      detail: 'Um toque leve quando a pinça chega a 1× ou a 10×.',
+    },
   },
   sensitivity: {
     title: 'Sensibilidade',
@@ -58,6 +63,7 @@ const pt: Strings = {
     ],
     onlyWithAutoLight: 'Só com a luz automática ligada.',
   },
+  zoomTitle: 'Zoom',
   unsupported: 'Não disponível neste aparelho',
   gpuFailed: 'A GPU não iniciou neste aparelho; o modo padrão continua valendo.',
   gesturesTitle: 'Gestos',
@@ -100,6 +106,10 @@ const en: Strings = {
       title: 'How others see you',
       detail: 'Shows the image without mirroring it.',
     },
+    zoomHaptics: {
+      title: 'Tick at the limits',
+      detail: 'A light tick when the pinch reaches 1× or 10×.',
+    },
   },
   sensitivity: {
     title: 'Sensitivity',
@@ -112,6 +122,7 @@ const en: Strings = {
     ],
     onlyWithAutoLight: 'Only with automatic light on.',
   },
+  zoomTitle: 'Zoom',
   unsupported: 'Not available on this phone',
   gpuFailed: 'The GPU did not start on this phone; the standard mode is still in use.',
   gesturesTitle: 'Gestures',

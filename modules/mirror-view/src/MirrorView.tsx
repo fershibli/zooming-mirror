@@ -24,6 +24,8 @@ export type MirrorViewProps = ViewProps & {
   highResolution: boolean;
   gpuSharpening: boolean;
   trueView: boolean;
+  /** A light tick when the pinch reaches 1× or the top zoom (on by default). */
+  zoomHaptics?: boolean;
   /** An inward swipe from the right edge, at the zoom circle's height. */
   onSettingsGesture?: () => void;
   onCameraInfo?: (event: NativeSyntheticEvent<CameraInfo>) => void;

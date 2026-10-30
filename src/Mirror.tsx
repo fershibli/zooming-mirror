@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { type CameraInfo, MirrorView } from '../modules/mirror-view';
 import { GearButton } from './GearButton';
 import { Settings } from './Settings';
-import { useSettings } from './store/settings';
+import { pickSettings, useSettings } from './store/settings';
 
 type Access = 'checking' | 'granted' | 'denied' | 'blocked';
 
@@ -27,18 +27,7 @@ export function Mirror() {
   const [gearVisible, setGearVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [camera, setCamera] = useState<CameraInfo | null>(null);
-  const settings = useSettings(
-    useShallow(
-      ({ autoLight, lightSensitivity, facePriority, highResolution, gpuSharpening, trueView }) => ({
-        autoLight,
-        lightSensitivity,
-        facePriority,
-        highResolution,
-        gpuSharpening,
-        trueView,
-      }),
-    ),
-  );
+  const settings = useSettings(useShallow(pickSettings));
   // The camera waits for the saved settings, so it starts once, as they say.
   const hydrated = useSettings((state) => state.hydrated);
 

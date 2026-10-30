@@ -49,6 +49,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   var highResolution = true
   var gpuSharpening = false
   var trueView = false
+  var zoomHaptics = true
 
   private var renderer: MirrorRenderer = PreviewRenderer(context)
   private val zoom = PinchZoom { renderer.onZoomChanged(it) }
@@ -301,8 +302,19 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onPinch(factor: Float, focusX: Float, focusY: Float, panX: Float, panY: Float) {
+    val before = zoom.scale
     zoom.zoomBy(factor, focusX, focusY, panX, panY)
     indicator.update(ValueIndicator.zoom(zoom.scale))
+    tickAtLimit(before)
+  }
+
+  /** A light tick the moment the zoom reaches 1× or the top, to feel the limits. */
+  private fun tickAtLimit(before: Float) {
+    val after = zoom.scale
+    val atLimit = after <= PinchZoom.MIN_SCALE || after >= PinchZoom.MAX_SCALE
+    if (zoomHaptics && atLimit && after != before) {
+      performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    }
   }
 
   override fun onPinchEnd() {
