@@ -180,7 +180,12 @@ export function Mirror() {
             onPick={pick}
             onClose={closeWheel}
           />
-          <Settings visible={settingsOpen} camera={camera} onClose={closeSettings} />
+          <Settings
+            visible={settingsOpen}
+            camera={camera}
+            flipped={hudFlipped}
+            onClose={closeSettings}
+          />
         </View>
       </View>
     );
