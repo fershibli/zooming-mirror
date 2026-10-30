@@ -8,7 +8,7 @@ class MirrorViewModule : Module() {
     Name("MirrorView")
 
     View(MirrorView::class) {
-      Events("onSettingsGesture", "onCameraInfo")
+      Events("onShortcutsGesture", "onShortcutsDrag", "onFreezeChange", "onCameraInfo")
 
       Prop("autoLight") { view: MirrorView, value: Boolean -> view.autoLight = value }
       Prop("lightSensitivity") { view: MirrorView, value: Int -> view.lightSensitivity = value }
@@ -22,6 +22,10 @@ class MirrorViewModule : Module() {
       Prop("rememberZoom") { view: MirrorView, value: Boolean -> view.restoresZoom = value }
       Prop("volumeZoom") { view: MirrorView, value: Boolean -> view.volumeZoom = value }
       Prop("fillLight") { view: MirrorView, value: Boolean -> view.fillLight = value }
+
+      AsyncFunction("toggleFreeze") { view: MirrorView ->
+        view.toggleFreeze()
+      }
 
       OnViewDidUpdateProps { view ->
         view.applySettings()

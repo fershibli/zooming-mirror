@@ -18,7 +18,8 @@ import kotlin.math.hypot
  * - double tap: to 1× and back;
  * - long press: freeze;
  * - starting on the right edge, vertical: manual exposure;
- * - starting on the right edge, inwards: the settings gear.
+ * - starting on the right edge, inwards: the shortcut wheel, and the same
+ *   finger can go on to a shortcut and let go on it.
  *
  * The volume keys zoom too, in MirrorView itself.
  */
@@ -39,10 +40,13 @@ class MirrorGestures(context: Context, private val view: View, private val liste
     fun onSlideStart(): Boolean
     fun onSlide(fraction: Float)
     fun onSlideEnd()
-    fun onSettingsSwipe()
+    fun onShortcutsSwipe()
+
+    /** The finger that opened the shortcuts, until it lets go ([end]). */
+    fun onShortcutsDrag(x: Float, y: Float, end: Boolean, cancelled: Boolean)
   }
 
-  private enum class Mode { IDLE, TOUCH, EDGE, SLIDE, DONE }
+  private enum class Mode { IDLE, TOUCH, EDGE, SLIDE, WHEEL }
 
   private val slop = ViewConfiguration.get(context).scaledTouchSlop
   private val minFling = ViewConfiguration.get(context).scaledMinimumFlingVelocity
@@ -126,7 +130,12 @@ class MirrorGestures(context: Context, private val view: View, private val liste
           listener.onSlide((downY - event.y) / (view.height * SLIDE_HEIGHT))
         }
       }
-      Mode.DONE, Mode.IDLE -> Unit
+      Mode.WHEEL -> when (event.actionMasked) {
+        MotionEvent.ACTION_MOVE -> listener.onShortcutsDrag(event.x, event.y, end = false, cancelled = false)
+        MotionEvent.ACTION_UP -> listener.onShortcutsDrag(event.x, event.y, end = true, cancelled = false)
+        MotionEvent.ACTION_CANCEL -> listener.onShortcutsDrag(event.x, event.y, end = true, cancelled = true)
+      }
+      Mode.IDLE -> Unit
       Mode.TOUCH, Mode.EDGE -> {
         scaleDetector.onTouchEvent(event)
         tapDetector.onTouchEvent(event)
@@ -183,9 +192,10 @@ class MirrorGestures(context: Context, private val view: View, private val liste
       return true
     }
     if (dx < -slop && abs(dx) >= abs(dy)) {
-      mode = Mode.DONE
+      mode = Mode.WHEEL
       cancelTaps(event)
-      listener.onSettingsSwipe()
+      listener.onShortcutsSwipe()
+      listener.onShortcutsDrag(event.x, event.y, end = false, cancelled = false)
     }
     return false
   }

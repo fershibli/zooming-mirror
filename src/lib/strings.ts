@@ -17,6 +17,14 @@ type Strings = {
     types: Record<SharpeningType, [name: string, detail: string]>;
     onlyWithGpu: string;
   };
+  shortcuts: {
+    fillLight: string;
+    sharpening: string;
+    sharpeningOff: string;
+    freeze: string;
+    unfreeze: string;
+    close: string;
+  };
   zoomTitle: string;
   unsupported: string;
   gpuFailed: string;
@@ -89,6 +97,14 @@ const pt: Strings = {
     },
     onlyWithGpu: 'Só com a nitidez (GPU) ligada.',
   },
+  shortcuts: {
+    fillLight: 'Luz',
+    sharpening: 'Nitidez',
+    sharpeningOff: 'Nitidez: ligue a GPU',
+    freeze: 'Congelar',
+    unfreeze: 'Descongelar',
+    close: 'Fechar atalhos',
+  },
   zoomTitle: 'Zoom',
   unsupported: 'Não disponível neste aparelho',
   gpuFailed: 'A GPU não iniciou neste aparelho; o modo padrão continua valendo.',
@@ -99,7 +115,7 @@ const pt: Strings = {
     ['Toque duplo', 'vai para 1× e volta'],
     ['Toque longo', 'congela e descongela'],
     ['Borda direita, na vertical', 'clareia ou escurece'],
-    ['Borda direita, para dentro', 'mostra a engrenagem'],
+    ['Borda direita, para dentro', 'abre os atalhos'],
     ['Botões de volume', 'aproximam e afastam'],
     ['Celular de cabeça para baixo', 'a imagem vira junto'],
   ],
@@ -170,6 +186,14 @@ const en: Strings = {
     },
     onlyWithGpu: 'Only with Sharpening (GPU) on.',
   },
+  shortcuts: {
+    fillLight: 'Light',
+    sharpening: 'Sharpening',
+    sharpeningOff: 'Sharpening: turn on the GPU',
+    freeze: 'Freeze',
+    unfreeze: 'Unfreeze',
+    close: 'Close shortcuts',
+  },
   zoomTitle: 'Zoom',
   unsupported: 'Not available on this phone',
   gpuFailed: 'The GPU did not start on this phone; the standard mode is still in use.',
@@ -180,7 +204,7 @@ const en: Strings = {
     ['Double tap', 'to 1× and back'],
     ['Long press', 'freezes and unfreezes'],
     ['Right edge, up or down', 'brighter or darker'],
-    ['Right edge, inwards', 'shows the gear'],
+    ['Right edge, inwards', 'opens the shortcuts'],
     ['Volume keys', 'zoom in and out'],
     ['Phone upside down', 'the picture turns over too'],
   ],

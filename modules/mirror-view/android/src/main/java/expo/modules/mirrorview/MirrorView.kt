@@ -45,7 +45,9 @@ import kotlin.math.sign
 @SuppressLint("ViewConstructor")
 class MirrorView(context: Context, appContext: AppContext) :
   ExpoView(context, appContext), MirrorGestures.Listener {
-  private val onSettingsGesture by EventDispatcher()
+  private val onShortcutsGesture by EventDispatcher()
+  private val onShortcutsDrag by EventDispatcher()
+  private val onFreezeChange by EventDispatcher()
   private val onCameraInfo by EventDispatcher()
 
   // Settings, set from JS. Applied together in applySettings().
@@ -211,7 +213,7 @@ class MirrorView(context: Context, appContext: AppContext) :
 
     // With gesture navigation, an inward swipe from the side edges is "back".
     // Android lets an app keep up to 200dp per edge for itself: here, around
-    // the height where the settings gear shows up.
+    // the height where the shortcut wheel opens.
     val density = resources.displayMetrics.density
     val exclusionHeight = (EXCLUSION_HEIGHT_DP * density).toInt()
     val exclusionWidth = (EXCLUSION_WIDTH_DP * density).toInt()
@@ -248,6 +250,7 @@ class MirrorView(context: Context, appContext: AppContext) :
     // A frozen copy is placed for the old size; the light wants a live face anyway.
     if (renderer.isFrozen) {
       renderer.unfreeze()
+      onFreezeChange(mapOf("frozen" to false))
     }
     setBackgroundColor(if (fillLight) Color.WHITE else Color.BLACK)
     setWindowBrightness(if (fillLight) 1f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
@@ -330,7 +333,11 @@ class MirrorView(context: Context, appContext: AppContext) :
       val builder = Preview.Builder().setResolutionSelector(resolutionSelector(wantHighResolution))
       exposure.listenTo(builder)
       val preview = builder.build()
+      val wasFrozen = renderer.isFrozen
       renderer.connect(preview)
+      if (wasFrozen) {
+        onFreezeChange(mapOf("frozen" to false))
+      }
       try {
         val selector = if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
           CameraSelector.DEFAULT_FRONT_CAMERA
@@ -383,8 +390,12 @@ class MirrorView(context: Context, appContext: AppContext) :
     cameraProvider?.unbindAll()
     exposure.detach()
     val old = renderer
+    val wasFrozen = old.isFrozen
     frame.removeView(old.view)
     old.release()
+    if (wasFrozen) {
+      onFreezeChange(mapOf("frozen" to false))
+    }
     renderer = if (gpu) GlRenderer(context) { message -> onGpuFailure(message) } else PreviewRenderer(context)
     frame.addView(renderer.view, matchParent())
     renderer.setSharpening(sharpening)
@@ -544,15 +555,23 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onLongPress() {
+    if (toggleFreeze()) {
+      performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
+  }
+
+  /** Freezes or unfreezes, from a long press or the shortcut; false when nothing changed. */
+  fun toggleFreeze(): Boolean {
     when {
       renderer.isFrozen -> {
         renderer.unfreeze()
         indicator.flash(ValueIndicator.LIVE)
       }
       renderer.freeze() -> indicator.flash(ValueIndicator.FROZEN)
-      else -> return
+      else -> return false
     }
-    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    onFreezeChange(mapOf("frozen" to renderer.isFrozen))
+    return true
   }
 
   override fun onSlideStart(): Boolean {
@@ -578,8 +597,14 @@ class MirrorView(context: Context, appContext: AppContext) :
     exposure.endSlide()
   }
 
-  override fun onSettingsSwipe() {
-    onSettingsGesture(emptyMap())
+  override fun onShortcutsSwipe() {
+    onShortcutsGesture(emptyMap())
+  }
+
+  override fun onShortcutsDrag(x: Float, y: Float, end: Boolean, cancelled: Boolean) {
+    // In dp, like the layout of the wheel on the JS side.
+    val density = resources.displayMetrics.density
+    onShortcutsDrag(mapOf("x" to x / density, "y" to y / density, "end" to end, "cancelled" to cancelled))
   }
 
   private fun animateTo(target: FloatArray) {
