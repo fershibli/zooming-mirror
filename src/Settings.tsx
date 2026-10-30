@@ -15,24 +15,19 @@ import {
 import type { CameraInfo } from '../modules/mirror-view';
 import { colors } from './lib/colors';
 import { strings } from './lib/strings';
-import { type SettingKey, useSettings } from './store/settings';
+import { SENSITIVITY_LEVELS, type ToggleKey, useSettings } from './store/settings';
 
-const ORDER: SettingKey[] = [
-  'autoLight',
-  'facePriority',
-  'highResolution',
-  'gpuSharpening',
-  'trueView',
-];
+/** The switches below the light ones. */
+const ORDER: ToggleKey[] = ['facePriority', 'highResolution', 'gpuSharpening', 'trueView'];
 
 /** False only when the camera said it cannot; unknown counts as available. */
-function isAvailable(key: SettingKey, camera: CameraInfo | null): boolean {
+function isAvailable(key: ToggleKey, camera: CameraInfo | null): boolean {
   if (!camera) {
     return true;
   }
   switch (key) {
     case 'autoLight':
-      return camera.meteringArea || camera.exposureCompensation;
+      return camera.meteringArea || camera.exposureCompensation || camera.exposureLock;
     case 'facePriority':
       return camera.facePriority;
     case 'gpuSharpening':
@@ -72,6 +67,10 @@ export function Settings({ visible, camera, onClose }: Props) {
   }, [visible, onClose]);
 
   const version = Constants.expoConfig?.version;
+  const autoLight = useSettings((state) => state.autoLight);
+  const lightHeld = useSettings(
+    (state) => !state.autoLight || state.lightSensitivity < SENSITIVITY_LEVELS - 1,
+  );
 
   return (
     // Stays mounted so it can fade out; while closed it takes no touches and is
@@ -95,6 +94,8 @@ export function Settings({ visible, camera, onClose }: Props) {
           </Pressable>
         </View>
 
+        <SettingRow setting="autoLight" available={isAvailable('autoLight', camera)} />
+        <SensitivityRow available={autoLight} />
         {ORDER.map((key) => (
           <SettingRow key={key} setting={key} available={isAvailable(key, camera)} />
         ))}
@@ -114,6 +115,9 @@ export function Settings({ visible, camera, onClose }: Props) {
               {strings.camera(camera.width, camera.height, camera.renderer === 'gpu')}
             </Text>
           ) : null}
+          {camera && camera.width > 0 && lightHeld ? (
+            <Text style={styles.footerText}>{strings.lightHold(camera.exposureLock)}</Text>
+          ) : null}
           {version ? <Text style={styles.footerText}>{strings.version(version)}</Text> : null}
         </View>
       </ScrollView>
@@ -121,7 +125,7 @@ export function Settings({ visible, camera, onClose }: Props) {
   );
 }
 
-function SettingRow({ setting, available }: { setting: SettingKey; available: boolean }) {
+function SettingRow({ setting, available }: { setting: ToggleKey; available: boolean }) {
   const value = useSettings((state) => state[setting]);
   const setSetting = useSettings((state) => state.setSetting);
   const { title, detail } = strings.options[setting];
@@ -149,6 +153,66 @@ function SettingRow({ setting, available }: { setting: SettingKey; available: bo
     </Pressable>
   );
 }
+
+/**
+ * Five bars, like a signal meter: tap one to pick that level. Screen readers
+ * get it as one adjustable control.
+ */
+function SensitivityRow({ available }: { available: boolean }) {
+  const level = useSettings((state) => state.lightSensitivity);
+  const setSetting = useSettings((state) => state.setSetting);
+  const { title, levels, onlyWithAutoLight } = strings.sensitivity;
+  const [name, detail] = levels[level] ?? levels[0];
+  const pick = (next: number) => {
+    if (available) {
+      setSetting('lightSensitivity', Math.max(0, Math.min(SENSITIVITY_LEVELS - 1, next)));
+    }
+  };
+
+  return (
+    <View
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={title}
+      accessibilityValue={{ text: name }}
+      accessibilityState={{ disabled: !available }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) =>
+        pick(level + (event.nativeEvent.actionName === 'increment' ? 1 : -1))
+      }
+      style={[styles.row, !available && styles.rowDisabled]}
+    >
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>
+          {title} <Text style={styles.level}>{name}</Text>
+        </Text>
+        <Text style={styles.rowDetail}>{available ? detail : onlyWithAutoLight}</Text>
+      </View>
+      <View style={styles.bars}>
+        {levels.map(([barName], index) => (
+          <Pressable
+            key={barName}
+            disabled={!available}
+            hitSlop={{ top: 12, bottom: 12 }}
+            onPress={() => pick(index)}
+            style={styles.barSlot}
+          >
+            <View
+              style={[
+                styles.bar,
+                { height: BAR_MIN + index * BAR_STEP },
+                available && index <= level ? styles.barOn : styles.barOff,
+              ]}
+            />
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const BAR_MIN = 8;
+const BAR_STEP = 6;
 
 const styles = StyleSheet.create({
   overlay: {
@@ -199,6 +263,30 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  level: {
+    color: colors.gold,
+  },
+  bars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: BAR_MIN + (SENSITIVITY_LEVELS - 1) * BAR_STEP,
+  },
+  barSlot: {
+    width: 14,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  // Square corners, like the pixel-art gear.
+  bar: {
+    width: 8,
+  },
+  barOn: {
+    backgroundColor: colors.gold,
+  },
+  barOff: {
+    backgroundColor: colors.slate,
   },
   rowDetail: {
     color: colors.mist,

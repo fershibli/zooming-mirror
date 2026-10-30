@@ -28,13 +28,16 @@ export function Mirror() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [camera, setCamera] = useState<CameraInfo | null>(null);
   const settings = useSettings(
-    useShallow(({ autoLight, facePriority, highResolution, gpuSharpening, trueView }) => ({
-      autoLight,
-      facePriority,
-      highResolution,
-      gpuSharpening,
-      trueView,
-    })),
+    useShallow(
+      ({ autoLight, lightSensitivity, facePriority, highResolution, gpuSharpening, trueView }) => ({
+        autoLight,
+        lightSensitivity,
+        facePriority,
+        highResolution,
+        gpuSharpening,
+        trueView,
+      }),
+    ),
   );
   // The camera waits for the saved settings, so it starts once, as they say.
   const hydrated = useSettings((state) => state.hydrated);

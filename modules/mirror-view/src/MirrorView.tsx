@@ -12,10 +12,14 @@ export type CameraInfo = {
   meteringArea: boolean;
   facePriority: boolean;
   exposureCompensation: boolean;
+  /** Held light uses the camera's own lock (otherwise, the compensation). */
+  exposureLock: boolean;
 };
 
 export type MirrorViewProps = ViewProps & {
   autoLight: boolean;
+  /** 0 to 4: how far the light has to change before it is metered again (2 by default). */
+  lightSensitivity?: number;
   facePriority: boolean;
   highResolution: boolean;
   gpuSharpening: boolean;

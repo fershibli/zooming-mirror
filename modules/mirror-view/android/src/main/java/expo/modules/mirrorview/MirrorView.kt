@@ -43,6 +43,7 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   // Settings, set from JS. Applied together in applySettings().
   var autoLight = true
+  var lightSensitivity = Exposure.DEFAULT_SENSITIVITY
   var facePriority = true
   var highResolution = true
   var gpuSharpening = false
@@ -80,8 +81,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   fun applySettings() {
     settingsApplied = true
     zoom.flipped = trueView
-    exposure.autoLight = autoLight
-    exposure.facePriority = facePriority
+    exposure.configure(autoLight, lightSensitivity, facePriority)
     val wantGpu = gpuSharpening && !gpuFailed
     if (boundGpu != null && boundGpu != wantGpu) {
       swapRenderer(wantGpu)
@@ -157,7 +157,9 @@ class MirrorView(context: Context, appContext: AppContext) :
     boundHighResolution = wantHighResolution
     scope.launch {
       val provider = ProcessCameraProvider.awaitInstance(context)
-      val preview = Preview.Builder().setResolutionSelector(resolutionSelector(wantHighResolution)).build()
+      val builder = Preview.Builder().setResolutionSelector(resolutionSelector(wantHighResolution))
+      exposure.listenTo(builder)
+      val preview = builder.build()
       renderer.connect(preview)
       try {
         val selector = if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
@@ -173,7 +175,13 @@ class MirrorView(context: Context, appContext: AppContext) :
         cameraProvider = provider
         this@MirrorView.camera = camera
         this@MirrorView.preview = preview
-        exposure.attach(camera, { renderer.visibleLuma(zoom) }, { zoom.isZoomed })
+        exposure.attach(
+          camera,
+          visibleLuma = { renderer.visibleLuma(zoom) },
+          zoomed = { zoom.isZoomed },
+          frozen = { renderer.isFrozen },
+          onCapabilitiesChanged = { reportCameraInfo() }
+        )
         reportCameraInfo()
         // The resolution can still be settling right after binding.
         postDelayed({ reportCameraInfo() }, CAMERA_INFO_DELAY_MS)
@@ -231,7 +239,8 @@ class MirrorView(context: Context, appContext: AppContext) :
         "gpuFailed" to gpuFailed,
         "meteringArea" to exposure.meteringSupported,
         "facePriority" to exposure.facePrioritySupported,
-        "exposureCompensation" to exposure.compensationSupported
+        "exposureCompensation" to exposure.compensationSupported,
+        "exposureLock" to exposure.holdsWithLock
       )
     )
   }
@@ -324,6 +333,7 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   override fun onSlideEnd() {
     indicator.hide()
+    exposure.endSlide()
   }
 
   override fun onSettingsSwipe() {
