@@ -35,5 +35,8 @@ interface MirrorRenderer {
   /** Mean brightness (0..1) of the area on screen, or null when unknown. */
   fun visibleLuma(zoom: PinchZoom): Float?
 
+  /** How the picture is sharpened; only the GPU path has a choice. */
+  fun setSharpening(type: Sharpening) = Unit
+
   fun release()
 }

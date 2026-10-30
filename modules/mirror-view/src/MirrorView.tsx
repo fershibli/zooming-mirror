@@ -23,6 +23,8 @@ export type MirrorViewProps = ViewProps & {
   facePriority: boolean;
   highResolution: boolean;
   gpuSharpening: boolean;
+  /** What the GPU path does in its second pass ("natural" by default). */
+  sharpening?: 'smooth' | 'natural' | 'detail';
   trueView: boolean;
   /** A light tick when the pinch reaches 1× or the top zoom (on by default). */
   zoomHaptics?: boolean;

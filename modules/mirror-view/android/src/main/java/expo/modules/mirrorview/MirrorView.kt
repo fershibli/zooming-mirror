@@ -52,6 +52,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   var facePriority = true
   var highResolution = true
   var gpuSharpening = false
+  var sharpening = Sharpening.NATURAL
   var trueView = false
   var zoomHaptics = true
   var dragInertia = true
@@ -142,6 +143,7 @@ class MirrorView(context: Context, appContext: AppContext) :
     if (boundGpu != null && boundGpu != wantGpu) {
       swapRenderer(wantGpu)
     }
+    renderer.setSharpening(sharpening)
     if (boundGpu != wantGpu || boundHighResolution != highResolution) {
       bindCamera()
     }
@@ -330,6 +332,7 @@ class MirrorView(context: Context, appContext: AppContext) :
     old.release()
     renderer = if (gpu) GlRenderer(context) { message -> onGpuFailure(message) } else PreviewRenderer(context)
     addView(renderer.view, 0, matchParent())
+    renderer.setSharpening(sharpening)
     if (laidOutWidth > 0) {
       renderer.layout(laidOutWidth, laidOutHeight)
     }

@@ -1,6 +1,6 @@
 import { getLocales } from 'expo-localization';
 
-import type { ToggleKey } from '../store/settings';
+import type { SharpeningType, ToggleKey } from '../store/settings';
 
 type Strings = {
   settings: string;
@@ -11,6 +11,11 @@ type Strings = {
     /** One per level, lowest first: its name and what it does. */
     levels: [name: string, detail: string][];
     onlyWithAutoLight: string;
+  };
+  sharpening: {
+    title: string;
+    types: Record<SharpeningType, [name: string, detail: string]>;
+    onlyWithGpu: string;
   };
   zoomTitle: string;
   unsupported: string;
@@ -74,6 +79,15 @@ const pt: Strings = {
       ['Máxima', 'Reajusta o tempo todo, como a câmera faz sozinha.'],
     ],
     onlyWithAutoLight: 'Só com a luz automática ligada.',
+  },
+  sharpening: {
+    title: 'Tipo de nitidez',
+    types: {
+      smooth: ['Lisa', 'Suaviza a textura da pele e o ruído, sem borrar os contornos.'],
+      natural: ['Natural', 'Realça as bordas, mais forte quanto maior o zoom.'],
+      detail: ['Detalhe', 'Realce forte e contraste local, para fazer a barba.'],
+    },
+    onlyWithGpu: 'Só com a nitidez (GPU) ligada.',
   },
   zoomTitle: 'Zoom',
   unsupported: 'Não disponível neste aparelho',
@@ -146,6 +160,15 @@ const en: Strings = {
       ['Highest', 'Adjusts all the time, as the camera does on its own.'],
     ],
     onlyWithAutoLight: 'Only with automatic light on.',
+  },
+  sharpening: {
+    title: 'Sharpening type',
+    types: {
+      smooth: ['Smooth', 'Softens skin texture and noise without blurring outlines.'],
+      natural: ['Natural', 'Sharpens edges, more the further it zooms.'],
+      detail: ['Detail', 'Strong sharpening and local contrast, for shaving.'],
+    },
+    onlyWithGpu: 'Only with Sharpening (GPU) on.',
   },
   zoomTitle: 'Zoom',
   unsupported: 'Not available on this phone',

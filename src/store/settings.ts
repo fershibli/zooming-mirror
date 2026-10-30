@@ -5,6 +5,10 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 /** Levels of `lightSensitivity`, 0 to 4; the highest never holds the light. */
 export const SENSITIVITY_LEVELS = 5;
 
+/** What the GPU path does after enlarging, in the order the settings show. */
+export const SHARPENING_TYPES = ['smooth', 'natural', 'detail'] as const;
+export type SharpeningType = (typeof SHARPENING_TYPES)[number];
+
 export type Settings = {
   /** The camera fits the light to what is on screen; off, it stays locked. */
   autoLight: boolean;
@@ -18,6 +22,8 @@ export type Settings = {
   highResolution: boolean;
   /** Experimental GPU path: bicubic upscaling plus sharpening. */
   gpuSharpening: boolean;
+  /** Smoother skin, the default sharpening, or strong detail for shaving. */
+  sharpening: SharpeningType;
   /** Not mirrored: how others see you. */
   trueView: boolean;
   /** A light tick when the pinch reaches 1× or the top zoom. */
@@ -37,6 +43,7 @@ const DEFAULTS: Settings = {
   facePriority: true,
   highResolution: true,
   gpuSharpening: false,
+  sharpening: 'natural',
   trueView: false,
   zoomHaptics: true,
   dragInertia: true,

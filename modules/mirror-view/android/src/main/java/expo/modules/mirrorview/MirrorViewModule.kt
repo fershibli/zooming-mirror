@@ -15,6 +15,7 @@ class MirrorViewModule : Module() {
       Prop("facePriority") { view: MirrorView, value: Boolean -> view.facePriority = value }
       Prop("highResolution") { view: MirrorView, value: Boolean -> view.highResolution = value }
       Prop("gpuSharpening") { view: MirrorView, value: Boolean -> view.gpuSharpening = value }
+      Prop("sharpening") { view: MirrorView, value: String -> view.sharpening = Sharpening.fromProp(value) }
       Prop("trueView") { view: MirrorView, value: Boolean -> view.trueView = value }
       Prop("zoomHaptics") { view: MirrorView, value: Boolean -> view.zoomHaptics = value }
       Prop("dragInertia") { view: MirrorView, value: Boolean -> view.dragInertia = value }

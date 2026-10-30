@@ -30,7 +30,8 @@ import java.util.concurrent.Executor
 /**
  * The GPU path: the camera writes into a texture, and every frame is drawn in
  * two passes into a TextureView the size of the screen. Pass 1 crops, zooms
- * and upscales (Catmull-Rom), pass 2 sharpens (see [GlShaders]).
+ * and upscales (Catmull-Rom), pass 2 sharpens or smooths, as [Sharpening]
+ * says (see [GlShaders]).
  *
  * All GL work runs on one thread. The main thread only posts the zoom and the
  * freeze to it, so nothing GL is ever shared between threads.
@@ -76,7 +77,8 @@ class GlRenderer(
 
   private var upscaleCamera = 0
   private var upscaleFrozen = 0
-  private var sharpen = 0
+  private val pass2 = IntArray(Sharpening.entries.size)
+  private var sharpening = Sharpening.NATURAL
   private val quad: FloatBuffer = ByteBuffer.allocateDirect(8 * 4).order(ByteOrder.nativeOrder())
     .asFloatBuffer().apply {
       put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f))
@@ -109,7 +111,9 @@ class GlRenderer(
         setUpEgl()
         upscaleCamera = program(GlShaders.UPSCALE_CAMERA)
         upscaleFrozen = program(GlShaders.UPSCALE_FROZEN)
-        sharpen = program(GlShaders.SHARPEN)
+        pass2[Sharpening.SMOOTH.ordinal] = program(GlShaders.SMOOTH)
+        pass2[Sharpening.NATURAL.ordinal] = program(GlShaders.SHARPEN_NATURAL)
+        pass2[Sharpening.DETAIL.ordinal] = program(GlShaders.SHARPEN_DETAIL)
       } catch (e: Exception) {
         fail("GPU setup failed", e)
       }
@@ -141,6 +145,13 @@ class GlRenderer(
       zoomScaleY = scaleY
       zoomTranslationX = translationX
       zoomTranslationY = translationY
+      render()
+    }
+  }
+
+  override fun setSharpening(type: Sharpening) {
+    gl.post {
+      sharpening = type
       render()
     }
   }
@@ -391,16 +402,30 @@ class GlRenderer(
 
     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
     GLES20.glViewport(0, 0, outWidth, outHeight)
-    GLES20.glUseProgram(sharpen)
+    val second = pass2[sharpening.ordinal]
+    GLES20.glUseProgram(second)
     GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, passTexture)
-    GLES20.glUniform1i(GLES20.glGetUniformLocation(sharpen, "uImage"), 0)
-    // Neighbours half a camera pixel apart, so it sharpens the picture's own
+    GLES20.glUniform1i(GLES20.glGetUniformLocation(second, "uImage"), 0)
+    // Neighbours half a camera pixel apart, so it works on the picture's own
     // edges rather than the smooth inside of an enlarged pixel.
     val distance = (texelOnScreen * 0.5f).coerceIn(1f, 4f)
-    GLES20.glUniform2f(GLES20.glGetUniformLocation(sharpen, "uStep"), distance / outWidth, distance / outHeight)
-    val sharpness = (0.2f + 0.12f * (zoomScaleY - 1f)).coerceIn(0.2f, 0.8f)
-    GLES20.glUniform1f(GLES20.glGetUniformLocation(sharpen, "uSharpness"), sharpness)
-    drawQuad(sharpen)
+    GLES20.glUniform2f(GLES20.glGetUniformLocation(second, "uStep"), distance / outWidth, distance / outHeight)
+    // Stronger the further it zooms; Detail starts higher and adds clarity.
+    val zoomed = zoomScaleY - 1f
+    when (sharpening) {
+      Sharpening.SMOOTH -> Unit
+      Sharpening.NATURAL -> {
+        val sharpness = (0.2f + 0.12f * zoomed).coerceIn(0.2f, 0.8f)
+        GLES20.glUniform1f(GLES20.glGetUniformLocation(second, "uSharpness"), sharpness)
+      }
+      Sharpening.DETAIL -> {
+        val sharpness = (0.55f + 0.1f * zoomed).coerceIn(0.55f, 1f)
+        val clarity = (0.5f + 0.05f * zoomed).coerceIn(0.5f, 0.9f)
+        GLES20.glUniform1f(GLES20.glGetUniformLocation(second, "uSharpness"), sharpness)
+        GLES20.glUniform1f(GLES20.glGetUniformLocation(second, "uClarity"), clarity)
+      }
+    }
+    drawQuad(second)
 
     EGL14.eglSwapBuffers(display, window)
   }
@@ -540,7 +565,7 @@ class GlRenderer(
       GLES20.glDeleteFramebuffers(1, intArrayOf(passFramebuffer), 0)
       GLES20.glDeleteTextures(1, intArrayOf(passTexture), 0)
     }
-    listOf(upscaleCamera, upscaleFrozen, sharpen).filter { it != 0 }.forEach(GLES20::glDeleteProgram)
+    (listOf(upscaleCamera, upscaleFrozen) + pass2.toList()).filter { it != 0 }.forEach(GLES20::glDeleteProgram)
     destroyWindow()
     outputTexture?.release()
     outputTexture = null
