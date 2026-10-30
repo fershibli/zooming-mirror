@@ -53,6 +53,7 @@
         }
       ],
       "./plugins/with-android-release-signing.js",
+      "./plugins/with-sensor-portrait.js",
       "expo-localization"
     ]
   }
