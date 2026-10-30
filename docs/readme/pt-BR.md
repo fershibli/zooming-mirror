@@ -27,6 +27,9 @@ Native, TypeScript e uma pequena view em Kotlin sobre o CameraX.
   tela mostra o valor e some assim que você solta. Arrastar com um dedo nunca o
   mostra.
 - A tela não apaga enquanto o app está aberto.
+- Segure o celular de cabeça para baixo, com a câmera embaixo, para ver o
+  queixo e o pescoço de baixo: a imagem e os gestos viram junto, mesmo com a
+  rotação automática desligada.
 - Deslize a partir da borda de cima ou de baixo para mostrar as barras do
   sistema por um instante.
 
@@ -113,8 +116,8 @@ arquivo por plano.
   - `PinchZoom` é o zoom em números; `PreviewRenderer` e `GlRenderer` (com
     `GlShaders`) o transformam em pixels;
   - `Exposure` mede a luz, e `ValueIndicator` é o círculo translúcido.
-- `plugins/` — config plugin que injeta a assinatura de release no projeto
-  Gradle gerado.
+- `plugins/` — config plugins: a assinatura de release no projeto Gradle
+  gerado e o retrato nos dois sentidos.
 
 ### Branches
 

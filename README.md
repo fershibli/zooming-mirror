@@ -25,6 +25,9 @@ TypeScript and a small Kotlin view on CameraX.
   shows the value, and fades out as soon as you let go. A one-finger drag
   never shows it.
 - The screen stays on while the app is open.
+- Hold the phone upside down, with the camera at the bottom, to look at your
+  chin and neck from below: the picture and the gestures turn over with it,
+  even with auto-rotate off.
 - Swipe from the top or bottom edge to bring the system bars back for a moment.
 
 ### Settings
@@ -111,8 +114,8 @@ Portuguese), one file per plan.
   - `PinchZoom` is the zoom as numbers; `PreviewRenderer` and `GlRenderer`
     (with `GlShaders`) turn it into pixels;
   - `Exposure` meters the light, `ValueIndicator` is the translucent circle.
-- `plugins/` — config plugin injecting the release signing into the generated
-  Gradle project.
+- `plugins/` — config plugins: the release signing for the generated Gradle
+  project, and portrait either way up.
 
 ### Branches
 
