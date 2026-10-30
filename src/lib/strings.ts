@@ -51,6 +51,10 @@ const pt: Strings = {
       title: 'Inércia no arraste',
       detail: 'Depois de um arraste rápido, a imagem continua deslizando um pouco.',
     },
+    rememberZoom: {
+      title: 'Lembrar o zoom',
+      detail: 'Abre o app no zoom e na posição em que ele ficou.',
+    },
     zoomHaptics: {
       title: 'Vibrar nos limites',
       detail: 'Um toque leve quando a pinça chega a 1× ou a 10×.',
@@ -113,6 +117,10 @@ const en: Strings = {
     dragInertia: {
       title: 'Drag inertia',
       detail: 'After a quick drag, the image keeps sliding a little.',
+    },
+    rememberZoom: {
+      title: 'Remember the zoom',
+      detail: 'Opens the app at the zoom and position it was left at.',
     },
     zoomHaptics: {
       title: 'Tick at the limits',

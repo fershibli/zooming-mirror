@@ -18,6 +18,7 @@ class MirrorViewModule : Module() {
       Prop("trueView") { view: MirrorView, value: Boolean -> view.trueView = value }
       Prop("zoomHaptics") { view: MirrorView, value: Boolean -> view.zoomHaptics = value }
       Prop("dragInertia") { view: MirrorView, value: Boolean -> view.dragInertia = value }
+      Prop("rememberZoom") { view: MirrorView, value: Boolean -> view.restoresZoom = value }
 
       OnViewDidUpdateProps { view ->
         view.applySettings()

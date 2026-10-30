@@ -28,6 +28,8 @@ export type MirrorViewProps = ViewProps & {
   zoomHaptics?: boolean;
   /** A quick one-finger drag keeps sliding a little (on by default). */
   dragInertia?: boolean;
+  /** Opens at the zoom and position it was left at (on by default). */
+  rememberZoom?: boolean;
   /** An inward swipe from the right edge, at the zoom circle's height. */
   onSettingsGesture?: () => void;
   onCameraInfo?: (event: NativeSyntheticEvent<CameraInfo>) => void;

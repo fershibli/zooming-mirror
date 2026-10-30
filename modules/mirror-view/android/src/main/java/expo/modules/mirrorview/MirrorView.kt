@@ -53,6 +53,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   var trueView = false
   var zoomHaptics = true
   var dragInertia = true
+  var restoresZoom = true
 
   private var renderer: MirrorRenderer = PreviewRenderer(context)
   private val zoom = PinchZoom { renderer.onZoomChanged(it) }
@@ -93,6 +94,10 @@ class MirrorView(context: Context, appContext: AppContext) :
   private var lastZoomed: FloatArray? = null
   private val meterSoon = Runnable { meter() }
 
+  /** Where the zoom was left, as fractions of the view, to open there again. */
+  private val savedZoom = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+  private var zoomRestored = false
+
   /** Keeps a quick drag going after the finger leaves, slowing down. */
   private val scroller = OverScroller(context)
   private val flingStep = object : Runnable {
@@ -123,6 +128,10 @@ class MirrorView(context: Context, appContext: AppContext) :
     if (boundGpu != wantGpu || boundHighResolution != highResolution) {
       bindCamera()
     }
+    if (!restoresZoom && savedZoom.contains(KEY_SCALE)) {
+      savedZoom.edit().clear().apply()
+    }
+    restoreZoom()
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -142,6 +151,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   private fun layoutContent(width: Int, height: Int) {
     renderer.layout(width, height)
     zoom.setSize(width.toFloat(), height.toFloat())
+    restoreZoom()
 
     val size = indicator.diameter
     val centreY = (height * (1 - INDICATOR_FROM_BOTTOM)).toInt()
@@ -312,11 +322,37 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   /** After the image stops moving: the state to go back to, and the light for it. */
   private fun afterMove() {
-    rememberZoom()
+    rememberLastZoomed()
     scheduleMeter()
+    saveZoom()
   }
 
-  private fun rememberZoom() {
+  private fun saveZoom() {
+    if (!restoresZoom || zoom.width == 0f || zoom.height == 0f) {
+      return
+    }
+    savedZoom.edit()
+      .putFloat(KEY_SCALE, zoom.scale)
+      .putFloat(KEY_X, zoom.translationX / zoom.width)
+      .putFloat(KEY_Y, zoom.translationY / zoom.height)
+      .apply()
+  }
+
+  /** Once, as soon as both the settings and the size are known. */
+  private fun restoreZoom() {
+    if (zoomRestored || !settingsApplied || zoom.width == 0f || zoom.height == 0f) {
+      return
+    }
+    zoomRestored = true
+    val scale = savedZoom.getFloat(KEY_SCALE, 1f)
+    if (!restoresZoom || scale <= PinchZoom.MIN_SCALE) {
+      return
+    }
+    zoom.set(scale, savedZoom.getFloat(KEY_X, 0f) * zoom.width, savedZoom.getFloat(KEY_Y, 0f) * zoom.height)
+    rememberLastZoomed()
+  }
+
+  private fun rememberLastZoomed() {
     if (zoom.isZoomed) {
       lastZoomed = floatArrayOf(zoom.scale, zoom.translationX, zoom.translationY)
     }
@@ -347,8 +383,7 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   override fun onPinchEnd() {
     indicator.hide()
-    rememberZoom()
-    scheduleMeter()
+    afterMove()
   }
 
   override fun onPan(dx: Float, dy: Float) {
@@ -392,7 +427,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   override fun onDoubleTap(x: Float, y: Float) {
     val target = when {
       zoom.isZoomed -> {
-        rememberZoom()
+        rememberLastZoomed()
         floatArrayOf(1f, 0f, 0f)
       }
       else -> lastZoomed ?: zoom.translationFor(DOUBLE_TAP_SCALE, x, y).let {
@@ -461,7 +496,7 @@ class MirrorView(context: Context, appContext: AppContext) :
       addListener(object : android.animation.AnimatorListenerAdapter() {
         override fun onAnimationEnd(animation: android.animation.Animator) {
           indicator.hide()
-          scheduleMeter()
+          afterMove()
         }
       })
       start()
@@ -495,5 +530,10 @@ class MirrorView(context: Context, appContext: AppContext) :
     private const val DOUBLE_TAP_MS = 250L
     private const val METER_DELAY_MS = 150L
     private const val CAMERA_INFO_DELAY_MS = 1000L
+
+    private const val PREFERENCES = "expo.modules.mirrorview"
+    private const val KEY_SCALE = "zoomScale"
+    private const val KEY_X = "zoomX"
+    private const val KEY_Y = "zoomY"
   }
 }

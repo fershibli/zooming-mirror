@@ -24,6 +24,8 @@ export type Settings = {
   zoomHaptics: boolean;
   /** A quick one-finger drag keeps sliding a little after the finger leaves. */
   dragInertia: boolean;
+  /** Opens at the zoom and position the app was left at. */
+  rememberZoom: boolean;
 };
 
 /** Everything a fresh install starts with; saved settings are merged over it. */
@@ -36,6 +38,7 @@ const DEFAULTS: Settings = {
   trueView: false,
   zoomHaptics: true,
   dragInertia: true,
+  rememberZoom: true,
 };
 
 const KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];
