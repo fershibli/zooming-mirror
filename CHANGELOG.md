@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.3.0 (2026-10-30)
+
+### Novidades
+
+- turn the mirror over when the phone is upside down (364f55d)
+- choose how sensitive the automatic light is (4962583)
+
+### Correções
+
+- hold the light instead of letting the camera re-expose (fffbb42)
+
 ## v1.2.0 (2026-10-05)
 
 ### Novidades
