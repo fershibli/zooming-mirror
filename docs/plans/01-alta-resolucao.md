@@ -1,6 +1,6 @@
 # 01 · Alta resolução na câmera
 
-**Status:** Aprovado · **Esforço:** baixo
+**Status:** Feito · **Esforço:** baixo
 
 ## Objetivo
 

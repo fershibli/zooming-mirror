@@ -1,12 +1,26 @@
 import { useKeepAwake } from 'expo-keep-awake';
-import { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, PermissionsAndroid, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AppState,
+  type LayoutChangeEvent,
+  Linking,
+  type NativeSyntheticEvent,
+  PermissionsAndroid,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 
-import { type CameraInfo, MirrorView } from '../modules/mirror-view';
-import { GearButton } from './GearButton';
+import {
+  type CameraInfo,
+  MirrorView,
+  type MirrorViewRef,
+  type ShortcutsDrag,
+} from '../modules/mirror-view';
 import { Settings } from './Settings';
-import { useSettings } from './store/settings';
+import { type Shortcut, ShortcutWheel, type Size, shortcutAt } from './ShortcutWheel';
+import { pickSettings, SHARPENING_TYPES, useSettings } from './store/settings';
 
 type Access = 'checking' | 'granted' | 'denied' | 'blocked';
 
@@ -24,21 +38,18 @@ export function Mirror() {
   useKeepAwake();
 
   const [access, setAccess] = useState<Access>('checking');
-  const [gearVisible, setGearVisible] = useState(false);
+  const [wheelOpen, setWheelOpen] = useState(false);
+  const [hovered, setHovered] = useState<Shortcut | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [camera, setCamera] = useState<CameraInfo | null>(null);
-  const settings = useSettings(
-    useShallow(
-      ({ autoLight, lightSensitivity, facePriority, highResolution, gpuSharpening, trueView }) => ({
-        autoLight,
-        lightSensitivity,
-        facePriority,
-        highResolution,
-        gpuSharpening,
-        trueView,
-      }),
-    ),
-  );
+  const [size, setSize] = useState<Size>({ width: 0, height: 0 });
+  // Not saved: the light and the freeze are for the moment.
+  const [fillLight, setFillLight] = useState(false);
+  const [frozen, setFrozen] = useState(false);
+  const mirror = useRef<MirrorViewRef>(null);
+  const settings = useSettings(useShallow(pickSettings));
+  const setSetting = useSettings((state) => state.setSetting);
+  const sharpeningAvailable = settings.gpuSharpening && !camera?.gpuFailed;
   // The camera waits for the saved settings, so it starts once, as they say.
   const hydrated = useSettings((state) => state.hydrated);
 
@@ -80,27 +91,84 @@ export function Mirror() {
     }
   }, [access]);
 
-  const showGear = useCallback(() => setGearVisible(true), []);
-  const hideGear = useCallback(() => setGearVisible(false), []);
-  const openSettings = useCallback(() => {
-    setGearVisible(false);
-    setSettingsOpen(true);
+  const openWheel = useCallback(() => setWheelOpen(true), []);
+  const closeWheel = useCallback(() => {
+    setWheelOpen(false);
+    setHovered(null);
   }, []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
+  const pick = useCallback(
+    (shortcut: Shortcut) => {
+      switch (shortcut) {
+        case 'fillLight':
+          setFillLight((on) => !on);
+          closeWheel();
+          break;
+        case 'sharpening': {
+          // Natural → Detail → Smooth → Natural; the wheel stays to go on.
+          const index = SHARPENING_TYPES.indexOf(settings.sharpening);
+          setSetting('sharpening', SHARPENING_TYPES[(index + 1) % SHARPENING_TYPES.length]);
+          break;
+        }
+        case 'freeze':
+          void mirror.current?.toggleFreeze();
+          closeWheel();
+          break;
+        case 'settings':
+          closeWheel();
+          setSettingsOpen(true);
+          break;
+      }
+    },
+    [closeWheel, setSetting, settings.sharpening],
+  );
+
+  // The finger that opened the wheel can go on to a shortcut and let go on it.
+  const onShortcutsDrag = useCallback(
+    (event: NativeSyntheticEvent<ShortcutsDrag>) => {
+      const { x, y, end, cancelled } = event.nativeEvent;
+      const hit = cancelled ? null : shortcutAt(x, y, size);
+      if (!end) {
+        setHovered(hit);
+        return;
+      }
+      setHovered(null);
+      if (hit && (hit !== 'sharpening' || sharpeningAvailable)) {
+        pick(hit);
+      }
+    },
+    [pick, sharpeningAvailable, size],
+  );
+
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setSize({ width, height });
+  }, []);
+
   if (access === 'granted' && hydrated) {
     return (
-      <View style={styles.fill}>
+      <View style={styles.fill} onLayout={onLayout}>
         <MirrorView
+          ref={mirror}
           style={StyleSheet.absoluteFill}
           {...settings}
-          onSettingsGesture={showGear}
+          fillLight={fillLight}
+          onShortcutsGesture={openWheel}
+          onShortcutsDrag={onShortcutsDrag}
+          onFreezeChange={(event) => setFrozen(event.nativeEvent.frozen)}
           onCameraInfo={(event) => setCamera(event.nativeEvent)}
         />
-        <GearButton
-          visible={gearVisible && !settingsOpen}
-          onPress={openSettings}
-          onTimeout={hideGear}
+        <ShortcutWheel
+          visible={wheelOpen && !settingsOpen && size.width > 0}
+          size={size}
+          hovered={hovered}
+          fillLight={fillLight}
+          frozen={frozen}
+          sharpening={settings.sharpening}
+          sharpeningAvailable={sharpeningAvailable}
+          onPick={pick}
+          onClose={closeWheel}
         />
         <Settings visible={settingsOpen} camera={camera} onClose={closeSettings} />
       </View>

@@ -96,18 +96,22 @@ void main() {
 
   val UPSCALE_FROZEN = "$PRECISION$FETCH_FROZEN$UPSCALE"
 
-  /**
-   * Pass 2: contrast-adaptive sharpening, after AMD's CAS. Each pixel is
-   * pushed away from its four neighbours, less so where contrast is already
-   * high, which keeps halos down.
-   */
-  val SHARPEN = """
-$PRECISION
+  /** Inputs of pass 2, which works on pass 1's output at screen size. */
+  private const val PASS2 = """
 varying vec2 vUv;
 uniform sampler2D uImage;
-uniform vec2 uStep;       // neighbour distance in texture units
+uniform vec2 uStep; // neighbour distance in texture units
+const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+"""
+
+  /**
+   * Contrast-adaptive sharpening, after AMD's CAS. Each pixel is pushed away
+   * from its four neighbours, less so where contrast is already high, which
+   * keeps halos down.
+   */
+  private const val CAS = """
 uniform float uSharpness; // 0..1
-void main() {
+vec3 cas() {
   vec3 b = texture2D(uImage, vUv + vec2(0.0, uStep.y)).rgb;
   vec3 d = texture2D(uImage, vUv - vec2(uStep.x, 0.0)).rgb;
   vec3 e = texture2D(uImage, vUv).rgb;
@@ -117,8 +121,64 @@ void main() {
   vec3 mx = max(max(max(d, e), max(f, b)), h);
   vec3 amp = sqrt(clamp(min(mn, 2.0 - mx) / max(mx, vec3(0.0001)), 0.0, 1.0));
   vec3 w = amp * (-1.0 / mix(8.0, 5.0, uSharpness));
-  vec3 c = (b * w + d * w + f * w + h * w + e) / (1.0 + 4.0 * w);
+  return (b * w + d * w + f * w + h * w + e) / (1.0 + 4.0 * w);
+}
+"""
+
+  /** Pass 2, [Sharpening.NATURAL]: CAS alone. */
+  val SHARPEN_NATURAL = """
+$PRECISION$PASS2$CAS
+void main() {
+  gl_FragColor = vec4(clamp(cas(), 0.0, 1.0), 1.0);
+}
+"""
+
+  /**
+   * Pass 2, [Sharpening.DETAIL]: CAS, then "clarity": the brightness minus a
+   * wider blur of it, added back. That raises the local contrast of short,
+   * dark strokes like stubble, on brightness only so colours do not fringe.
+   */
+  val SHARPEN_DETAIL = """
+$PRECISION$PASS2$CAS
+uniform float uClarity;
+float luma(vec2 offset) {
+  return dot(texture2D(uImage, vUv + offset).rgb, LUMA);
+}
+void main() {
+  vec2 r = uStep * 3.0;
+  vec2 q = r * 0.7071;
+  float blur = (luma(vec2(r.x, 0.0)) + luma(vec2(-r.x, 0.0)) + luma(vec2(0.0, r.y))
+    + luma(vec2(0.0, -r.y)) + luma(q) + luma(-q) + luma(vec2(q.x, -q.y))
+    + luma(vec2(-q.x, q.y))) / 8.0;
+  vec3 c = cas() + (luma(vec2(0.0)) - blur) * uClarity;
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}
+"""
+
+  /**
+   * Pass 2, [Sharpening.SMOOTH]: a 5×5 bilateral filter. Neighbours count
+   * less the further they are and the more their brightness differs, so
+   * skin texture and noise blend while edges, which differ a lot, stay.
+   */
+  val SMOOTH = """
+$PRECISION$PASS2
+void main() {
+  vec3 centre = texture2D(uImage, vUv).rgb;
+  float lc = dot(centre, LUMA);
+  vec3 sum = vec3(0.0);
+  float total = 0.0;
+  for (int y = -2; y <= 2; y++) {
+    for (int x = -2; x <= 2; x++) {
+      vec2 o = vec2(float(x), float(y));
+      vec3 s = texture2D(uImage, vUv + o * uStep).rgb;
+      float d = dot(s, LUMA) - lc;
+      // Spatial sigma 1.5 taps, brightness sigma 0.08.
+      float w = exp(-dot(o, o) / 4.5 - d * d / 0.0128);
+      sum += s * w;
+      total += w;
+    }
+  }
+  gl_FragColor = vec4(sum / total, 1.0);
 }
 """
 }

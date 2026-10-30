@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   Animated,
   BackHandler,
@@ -15,10 +15,18 @@ import {
 import type { CameraInfo } from '../modules/mirror-view';
 import { colors } from './lib/colors';
 import { strings } from './lib/strings';
-import { SENSITIVITY_LEVELS, type ToggleKey, useSettings } from './store/settings';
+import {
+  SENSITIVITY_LEVELS,
+  SHARPENING_TYPES,
+  type ToggleKey,
+  useSettings,
+} from './store/settings';
 
 /** The switches below the light ones. */
 const ORDER: ToggleKey[] = ['facePriority', 'highResolution', 'gpuSharpening', 'trueView'];
+
+/** The zoom's own extras, each one easy to turn off. */
+const ZOOM_ORDER: ToggleKey[] = ['volumeZoom', 'dragInertia', 'rememberZoom', 'zoomHaptics'];
 
 /** False only when the camera said it cannot; unknown counts as available. */
 function isAvailable(key: ToggleKey, camera: CameraInfo | null): boolean {
@@ -68,6 +76,7 @@ export function Settings({ visible, camera, onClose }: Props) {
 
   const version = Constants.expoConfig?.version;
   const autoLight = useSettings((state) => state.autoLight);
+  const gpuSharpening = useSettings((state) => state.gpuSharpening);
   const lightHeld = useSettings(
     (state) => !state.autoLight || state.lightSensitivity < SENSITIVITY_LEVELS - 1,
   );
@@ -97,9 +106,19 @@ export function Settings({ visible, camera, onClose }: Props) {
         <SettingRow setting="autoLight" available={isAvailable('autoLight', camera)} />
         <SensitivityRow available={autoLight} />
         {ORDER.map((key) => (
-          <SettingRow key={key} setting={key} available={isAvailable(key, camera)} />
+          <Fragment key={key}>
+            <SettingRow setting={key} available={isAvailable(key, camera)} />
+            {key === 'gpuSharpening' ? (
+              <SharpeningRow available={gpuSharpening && isAvailable(key, camera)} />
+            ) : null}
+          </Fragment>
         ))}
         {camera?.gpuFailed ? <Text style={styles.warning}>{strings.gpuFailed}</Text> : null}
+
+        <Text style={styles.section}>{strings.zoomTitle}</Text>
+        {ZOOM_ORDER.map((key) => (
+          <SettingRow key={key} setting={key} available />
+        ))}
 
         <Text style={styles.section}>{strings.gesturesTitle}</Text>
         {strings.gestures.map(([gesture, effect]) => (
@@ -211,6 +230,39 @@ function SensitivityRow({ available }: { available: boolean }) {
   );
 }
 
+/** Three side-by-side choices for what the GPU path does after enlarging. */
+function SharpeningRow({ available }: { available: boolean }) {
+  const type = useSettings((state) => state.sharpening);
+  const setSetting = useSettings((state) => state.setSetting);
+  const { title, types, onlyWithGpu } = strings.sharpening;
+
+  return (
+    <View style={[styles.column, !available && styles.rowDisabled]}>
+      <Text style={styles.rowTitle}>{title}</Text>
+      <Text style={styles.rowDetail}>{available ? types[type][1] : onlyWithGpu}</Text>
+      <View accessibilityRole="radiogroup" style={styles.segments}>
+        {SHARPENING_TYPES.map((option) => {
+          const selected = option === type;
+          return (
+            <Pressable
+              key={option}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected, disabled: !available }}
+              disabled={!available}
+              onPress={() => setSetting('sharpening', option)}
+              style={[styles.segment, selected && available && styles.segmentOn]}
+            >
+              <Text style={[styles.segmentText, selected && available && styles.segmentTextOn]}>
+                {types[option][0]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const BAR_MIN = 8;
 const BAR_STEP = 6;
 
@@ -251,6 +303,36 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.slate,
+  },
+  column: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.slate,
+  },
+  segments: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  // Square corners, like the pixel-art icons.
+  segment: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: colors.slate,
+  },
+  segmentOn: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  segmentText: {
+    color: colors.mist,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  segmentTextOn: {
+    color: colors.night,
   },
   rowDisabled: {
     opacity: 0.5,

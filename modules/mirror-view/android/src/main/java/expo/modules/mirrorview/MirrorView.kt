@@ -3,14 +3,19 @@ package expo.modules.mirrorview
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Rect
 import android.hardware.display.DisplayManager
+import android.os.Build
 import android.util.Log
 import android.util.Size
 import android.view.HapticFeedbackConstants
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.widget.OverScroller
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
@@ -29,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlin.math.sign
 
 /**
@@ -39,7 +45,9 @@ import kotlin.math.sign
 @SuppressLint("ViewConstructor")
 class MirrorView(context: Context, appContext: AppContext) :
   ExpoView(context, appContext), MirrorGestures.Listener {
-  private val onSettingsGesture by EventDispatcher()
+  private val onShortcutsGesture by EventDispatcher()
+  private val onShortcutsDrag by EventDispatcher()
+  private val onFreezeChange by EventDispatcher()
   private val onCameraInfo by EventDispatcher()
 
   // Settings, set from JS. Applied together in applySettings().
@@ -48,7 +56,24 @@ class MirrorView(context: Context, appContext: AppContext) :
   var facePriority = true
   var highResolution = true
   var gpuSharpening = false
+  var sharpening = Sharpening.NATURAL
   var trueView = false
+  var zoomHaptics = true
+  var dragInertia = true
+  var restoresZoom = true
+  var volumeZoom = true
+  var fillLight = false
+
+  /**
+   * Holds the picture and clips it. With the fill light on it sits inside a
+   * white border, and a zoomed picture must not spill over that border.
+   */
+  private val frame = object : ViewGroup(context) {
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) = Unit
+  }
+  private var imageLeft = 0
+  private var imageTop = 0
+  private var appliedFillLight = false
 
   private var renderer: MirrorRenderer = PreviewRenderer(context)
   private val zoom = PinchZoom { renderer.onZoomChanged(it) }
@@ -89,8 +114,40 @@ class MirrorView(context: Context, appContext: AppContext) :
   private var lastZoomed: FloatArray? = null
   private val meterSoon = Runnable { meter() }
 
+  /** Where the zoom was left, as fractions of the view, to open there again. */
+  private val savedZoom = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+  private var zoomRestored = false
+
+  /** The volume keys zoom in steps; the circle stays up while they are pressed. */
+  private val endVolumeZoom = Runnable {
+    indicator.hide()
+    afterMove()
+  }
+
+  /** Keeps a quick drag going after the finger leaves, slowing down. */
+  private val scroller = OverScroller(context)
+  private val flingStep = object : Runnable {
+    override fun run() {
+      if (scroller.computeScrollOffset()) {
+        zoom.set(zoom.scale, scroller.currX.toFloat(), scroller.currY.toFloat())
+        postOnAnimation(this)
+      } else {
+        afterMove()
+      }
+    }
+  }
+
   init {
-    addView(renderer.view, matchParent())
+    // Focused, so the volume keys come here before the system turns them into
+    // a volume change.
+    isFocusable = true
+    isFocusableInTouchMode = true
+    // The focus is only for the keys: nothing to draw for it.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      defaultFocusHighlightEnabled = false
+    }
+    addView(frame, matchParent())
+    frame.addView(renderer.view, matchParent())
     // A sibling of the image, so the zoom never scales or moves it.
     addView(indicator, ViewGroup.LayoutParams(indicator.diameter, indicator.diameter))
   }
@@ -103,9 +160,15 @@ class MirrorView(context: Context, appContext: AppContext) :
     if (boundGpu != null && boundGpu != wantGpu) {
       swapRenderer(wantGpu)
     }
+    renderer.setSharpening(sharpening)
+    applyFillLight()
     if (boundGpu != wantGpu || boundHighResolution != highResolution) {
       bindCamera()
     }
+    if (!restoresZoom && savedZoom.contains(KEY_SCALE)) {
+      savedZoom.edit().clear().apply()
+    }
+    restoreZoom()
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -123,8 +186,20 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   private fun layoutContent(width: Int, height: Int) {
-    renderer.layout(width, height)
-    zoom.setSize(width.toFloat(), height.toFloat())
+    // The picture fills the view, or sits inside the fill light's border.
+    val border = if (fillLight) (minOf(width, height) * FILL_LIGHT_BORDER).toInt() else 0
+    val imageWidth = width - 2 * border
+    val imageHeight = height - 2 * border
+    imageLeft = border
+    imageTop = border
+    frame.measure(
+      MeasureSpec.makeMeasureSpec(imageWidth, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(imageHeight, MeasureSpec.EXACTLY)
+    )
+    frame.layout(border, border, border + imageWidth, border + imageHeight)
+    renderer.layout(imageWidth, imageHeight)
+    zoom.setSize(imageWidth.toFloat(), imageHeight.toFloat())
+    restoreZoom()
 
     val size = indicator.diameter
     val centreY = (height * (1 - INDICATOR_FROM_BOTTOM)).toInt()
@@ -138,7 +213,7 @@ class MirrorView(context: Context, appContext: AppContext) :
 
     // With gesture navigation, an inward swipe from the side edges is "back".
     // Android lets an app keep up to 200dp per edge for itself: here, around
-    // the height where the settings gear shows up.
+    // the height where the shortcut wheel opens.
     val density = resources.displayMetrics.density
     val exclusionHeight = (EXCLUSION_HEIGHT_DP * density).toInt()
     val exclusionWidth = (EXCLUSION_WIDTH_DP * density).toInt()
@@ -151,6 +226,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     displayManager.registerDisplayListener(displayListener, null)
+    requestFocus()
     if (settingsApplied) {
       bindCamera()
     }
@@ -158,7 +234,36 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   override fun onDetachedFromWindow() {
     displayManager.unregisterDisplayListener(displayListener)
+    setWindowBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
     super.onDetachedFromWindow()
+  }
+
+  /**
+   * The screen as a light: full brightness, for this window only, and a white
+   * border around a slightly smaller picture.
+   */
+  private fun applyFillLight() {
+    if (fillLight == appliedFillLight) {
+      return
+    }
+    appliedFillLight = fillLight
+    // A frozen copy is placed for the old size; the light wants a live face anyway.
+    if (renderer.isFrozen) {
+      renderer.unfreeze()
+      onFreezeChange(mapOf("frozen" to false))
+    }
+    setBackgroundColor(if (fillLight) Color.WHITE else Color.BLACK)
+    setWindowBrightness(if (fillLight) 1f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
+    if (laidOutWidth > 0) {
+      layoutContent(laidOutWidth, laidOutHeight)
+    }
+  }
+
+  private fun setWindowBrightness(value: Float) {
+    val window = appContext.currentActivity?.window ?: return
+    if (window.attributes.screenBrightness != value) {
+      window.attributes = window.attributes.apply { screenBrightness = value }
+    }
   }
 
   /** Keeps the picture upright on screen when the phone turns upside down. */
@@ -171,7 +276,43 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   @SuppressLint("ClickableViewAccessibility")
-  override fun onTouchEvent(event: MotionEvent): Boolean = gestures.onTouchEvent(event)
+  override fun onTouchEvent(event: MotionEvent): Boolean {
+    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+      // Any new touch catches the image where it is.
+      stopFling()
+      if (!hasFocus()) {
+        requestFocus()
+      }
+    }
+    return gestures.onTouchEvent(event)
+  }
+
+  override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+    val step = if (event.repeatCount > 0) VOLUME_REPEAT_STEP else VOLUME_STEP
+    val factor = when (keyCode) {
+      KeyEvent.KEYCODE_VOLUME_UP -> step
+      KeyEvent.KEYCODE_VOLUME_DOWN -> 1 / step
+      else -> return super.onKeyDown(keyCode, event)
+    }
+    if (!volumeZoom) {
+      return super.onKeyDown(keyCode, event)
+    }
+    stopFling()
+    animator?.cancel()
+    removeCallbacks(endVolumeZoom)
+    val before = zoom.scale
+    // Around the centre of what is on screen, as a one-handed pinch would.
+    zoom.zoomBy(factor, zoom.width / 2, zoom.height / 2, 0f, 0f)
+    indicator.show(ValueIndicator.zoom(zoom.scale))
+    tickAtLimit(before)
+    postDelayed(endVolumeZoom, VOLUME_HOLD_MS)
+    return true
+  }
+
+  override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+    val volumeKey = keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+    return if (volumeZoom && volumeKey) true else super.onKeyUp(keyCode, event)
+  }
 
   // ---- Camera ----
 
@@ -192,7 +333,11 @@ class MirrorView(context: Context, appContext: AppContext) :
       val builder = Preview.Builder().setResolutionSelector(resolutionSelector(wantHighResolution))
       exposure.listenTo(builder)
       val preview = builder.build()
+      val wasFrozen = renderer.isFrozen
       renderer.connect(preview)
+      if (wasFrozen) {
+        onFreezeChange(mapOf("frozen" to false))
+      }
       try {
         val selector = if (provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
           CameraSelector.DEFAULT_FRONT_CAMERA
@@ -245,12 +390,17 @@ class MirrorView(context: Context, appContext: AppContext) :
     cameraProvider?.unbindAll()
     exposure.detach()
     val old = renderer
-    removeView(old.view)
+    val wasFrozen = old.isFrozen
+    frame.removeView(old.view)
     old.release()
+    if (wasFrozen) {
+      onFreezeChange(mapOf("frozen" to false))
+    }
     renderer = if (gpu) GlRenderer(context) { message -> onGpuFailure(message) } else PreviewRenderer(context)
-    addView(renderer.view, 0, matchParent())
+    frame.addView(renderer.view, matchParent())
+    renderer.setSharpening(sharpening)
     if (laidOutWidth > 0) {
-      renderer.layout(laidOutWidth, laidOutHeight)
+      layoutContent(laidOutWidth, laidOutHeight)
     }
     renderer.onZoomChanged(zoom)
   }
@@ -287,7 +437,39 @@ class MirrorView(context: Context, appContext: AppContext) :
     exposure.meter(if (zoom.isZoomed) renderer.meteringPoint(zoom, camera) else null)
   }
 
-  private fun rememberZoom() {
+  /** After the image stops moving: the state to go back to, and the light for it. */
+  private fun afterMove() {
+    rememberLastZoomed()
+    scheduleMeter()
+    saveZoom()
+  }
+
+  private fun saveZoom() {
+    if (!restoresZoom || zoom.width == 0f || zoom.height == 0f) {
+      return
+    }
+    savedZoom.edit()
+      .putFloat(KEY_SCALE, zoom.scale)
+      .putFloat(KEY_X, zoom.translationX / zoom.width)
+      .putFloat(KEY_Y, zoom.translationY / zoom.height)
+      .apply()
+  }
+
+  /** Once, as soon as both the settings and the size are known. */
+  private fun restoreZoom() {
+    if (zoomRestored || !settingsApplied || zoom.width == 0f || zoom.height == 0f) {
+      return
+    }
+    zoomRestored = true
+    val scale = savedZoom.getFloat(KEY_SCALE, 1f)
+    if (!restoresZoom || scale <= PinchZoom.MIN_SCALE) {
+      return
+    }
+    zoom.set(scale, savedZoom.getFloat(KEY_X, 0f) * zoom.width, savedZoom.getFloat(KEY_Y, 0f) * zoom.height)
+    rememberLastZoomed()
+  }
+
+  private fun rememberLastZoomed() {
     if (zoom.isZoomed) {
       lastZoomed = floatArrayOf(zoom.scale, zoom.translationX, zoom.translationY)
     }
@@ -301,14 +483,24 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onPinch(factor: Float, focusX: Float, focusY: Float, panX: Float, panY: Float) {
-    zoom.zoomBy(factor, focusX, focusY, panX, panY)
+    val before = zoom.scale
+    zoom.zoomBy(factor, focusX - imageLeft, focusY - imageTop, panX, panY)
     indicator.update(ValueIndicator.zoom(zoom.scale))
+    tickAtLimit(before)
+  }
+
+  /** A light tick the moment the zoom reaches 1× or the top, to feel the limits. */
+  private fun tickAtLimit(before: Float) {
+    val after = zoom.scale
+    val atLimit = after <= PinchZoom.MIN_SCALE || after >= PinchZoom.MAX_SCALE
+    if (zoomHaptics && atLimit && after != before) {
+      performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    }
   }
 
   override fun onPinchEnd() {
     indicator.hide()
-    rememberZoom()
-    scheduleMeter()
+    afterMove()
   }
 
   override fun onPan(dx: Float, dy: Float) {
@@ -316,17 +508,46 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onPanEnd() {
-    rememberZoom()
-    scheduleMeter()
+    afterMove()
+  }
+
+  override fun onFling(velocityX: Float, velocityY: Float) {
+    if (!dragInertia || !zoom.isZoomed) {
+      afterMove()
+      return
+    }
+    // Same limits as the pan: the image keeps covering the view.
+    val maxX = ((zoom.scale - 1) * zoom.width / 2).toInt()
+    val maxY = ((zoom.scale - 1) * zoom.height / 2).toInt()
+    scroller.fling(
+      zoom.translationX.roundToInt(),
+      zoom.translationY.roundToInt(),
+      velocityX.roundToInt(),
+      velocityY.roundToInt(),
+      -maxX,
+      maxX,
+      -maxY,
+      maxY
+    )
+    removeCallbacks(flingStep)
+    postOnAnimation(flingStep)
+  }
+
+  private fun stopFling() {
+    if (!scroller.isFinished) {
+      scroller.forceFinished(true)
+      removeCallbacks(flingStep)
+      afterMove()
+    }
   }
 
   override fun onDoubleTap(x: Float, y: Float) {
     val target = when {
       zoom.isZoomed -> {
-        rememberZoom()
+        rememberLastZoomed()
         floatArrayOf(1f, 0f, 0f)
       }
-      else -> lastZoomed ?: zoom.translationFor(DOUBLE_TAP_SCALE, x, y).let {
+      else -> lastZoomed ?: zoom.translationFor(DOUBLE_TAP_SCALE, x - imageLeft, y - imageTop).let {
         floatArrayOf(DOUBLE_TAP_SCALE, it.x, it.y)
       }
     }
@@ -334,15 +555,23 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onLongPress() {
+    if (toggleFreeze()) {
+      performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
+  }
+
+  /** Freezes or unfreezes, from a long press or the shortcut; false when nothing changed. */
+  fun toggleFreeze(): Boolean {
     when {
       renderer.isFrozen -> {
         renderer.unfreeze()
         indicator.flash(ValueIndicator.LIVE)
       }
       renderer.freeze() -> indicator.flash(ValueIndicator.FROZEN)
-      else -> return
+      else -> return false
     }
-    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    onFreezeChange(mapOf("frozen" to renderer.isFrozen))
+    return true
   }
 
   override fun onSlideStart(): Boolean {
@@ -368,11 +597,18 @@ class MirrorView(context: Context, appContext: AppContext) :
     exposure.endSlide()
   }
 
-  override fun onSettingsSwipe() {
-    onSettingsGesture(emptyMap())
+  override fun onShortcutsSwipe() {
+    onShortcutsGesture(emptyMap())
+  }
+
+  override fun onShortcutsDrag(x: Float, y: Float, end: Boolean, cancelled: Boolean) {
+    // In dp, like the layout of the wheel on the JS side.
+    val density = resources.displayMetrics.density
+    onShortcutsDrag(mapOf("x" to x / density, "y" to y / density, "end" to end, "cancelled" to cancelled))
   }
 
   private fun animateTo(target: FloatArray) {
+    stopFling()
     animator?.cancel()
     val from = floatArrayOf(zoom.scale, zoom.translationX, zoom.translationY)
     indicator.show(ValueIndicator.zoom(zoom.scale))
@@ -391,7 +627,7 @@ class MirrorView(context: Context, appContext: AppContext) :
       addListener(object : android.animation.AnimatorListenerAdapter() {
         override fun onAnimationEnd(animation: android.animation.Animator) {
           indicator.hide()
-          scheduleMeter()
+          afterMove()
         }
       })
       start()
@@ -400,8 +636,12 @@ class MirrorView(context: Context, appContext: AppContext) :
 
   fun release() {
     displayManager.unregisterDisplayListener(displayListener)
+    setWindowBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
     animator?.cancel()
+    scroller.forceFinished(true)
+    removeCallbacks(flingStep)
     removeCallbacks(meterSoon)
+    removeCallbacks(endVolumeZoom)
     scope.cancel()
     exposure.detach()
     cameraProvider?.unbindAll()
@@ -423,5 +663,18 @@ class MirrorView(context: Context, appContext: AppContext) :
     private const val DOUBLE_TAP_MS = 250L
     private const val METER_DELAY_MS = 150L
     private const val CAMERA_INFO_DELAY_MS = 1000L
+
+    /** Fill light border, as a part of the view's shorter side, on every side. */
+    private const val FILL_LIGHT_BORDER = 0.14f
+
+    /** Zoom per press of a volume key, and per repeat while it is held. */
+    private const val VOLUME_STEP = 1.25f
+    private const val VOLUME_REPEAT_STEP = 1.08f
+    private const val VOLUME_HOLD_MS = 700L
+
+    private const val PREFERENCES = "expo.modules.mirrorview"
+    private const val KEY_SCALE = "zoomScale"
+    private const val KEY_X = "zoomX"
+    private const val KEY_Y = "zoomY"
   }
 }

@@ -1,6 +1,6 @@
 import { getLocales } from 'expo-localization';
 
-import type { ToggleKey } from '../store/settings';
+import type { SharpeningType, ToggleKey } from '../store/settings';
 
 type Strings = {
   settings: string;
@@ -12,6 +12,20 @@ type Strings = {
     levels: [name: string, detail: string][];
     onlyWithAutoLight: string;
   };
+  sharpening: {
+    title: string;
+    types: Record<SharpeningType, [name: string, detail: string]>;
+    onlyWithGpu: string;
+  };
+  shortcuts: {
+    fillLight: string;
+    sharpening: string;
+    sharpeningOff: string;
+    freeze: string;
+    unfreeze: string;
+    close: string;
+  };
+  zoomTitle: string;
   unsupported: string;
   gpuFailed: string;
   gesturesTitle: string;
@@ -46,6 +60,22 @@ const pt: Strings = {
       title: 'Como os outros te veem',
       detail: 'Mostra a imagem sem espelhar.',
     },
+    volumeZoom: {
+      title: 'Zoom pelo volume',
+      detail: 'Os botões de volume aproximam e afastam. Desligado, voltam a mudar o volume.',
+    },
+    dragInertia: {
+      title: 'Inércia no arraste',
+      detail: 'Depois de um arraste rápido, a imagem continua deslizando um pouco.',
+    },
+    rememberZoom: {
+      title: 'Lembrar o zoom',
+      detail: 'Abre o app no zoom e na posição em que ele ficou.',
+    },
+    zoomHaptics: {
+      title: 'Vibrar nos limites',
+      detail: 'Um toque leve quando a pinça chega a 1× ou a 10×.',
+    },
   },
   sensitivity: {
     title: 'Sensibilidade',
@@ -58,6 +88,24 @@ const pt: Strings = {
     ],
     onlyWithAutoLight: 'Só com a luz automática ligada.',
   },
+  sharpening: {
+    title: 'Tipo de nitidez',
+    types: {
+      smooth: ['Lisa', 'Suaviza a textura da pele e o ruído, sem borrar os contornos.'],
+      natural: ['Natural', 'Realça as bordas, mais forte quanto maior o zoom.'],
+      detail: ['Detalhe', 'Realce forte e contraste local, para fazer a barba.'],
+    },
+    onlyWithGpu: 'Só com a nitidez (GPU) ligada.',
+  },
+  shortcuts: {
+    fillLight: 'Luz',
+    sharpening: 'Nitidez',
+    sharpeningOff: 'Nitidez: ligue a GPU',
+    freeze: 'Congelar',
+    unfreeze: 'Descongelar',
+    close: 'Fechar atalhos',
+  },
+  zoomTitle: 'Zoom',
   unsupported: 'Não disponível neste aparelho',
   gpuFailed: 'A GPU não iniciou neste aparelho; o modo padrão continua valendo.',
   gesturesTitle: 'Gestos',
@@ -67,7 +115,8 @@ const pt: Strings = {
     ['Toque duplo', 'vai para 1× e volta'],
     ['Toque longo', 'congela e descongela'],
     ['Borda direita, na vertical', 'clareia ou escurece'],
-    ['Borda direita, para dentro', 'mostra a engrenagem'],
+    ['Borda direita, para dentro', 'abre os atalhos'],
+    ['Botões de volume', 'aproximam e afastam'],
     ['Celular de cabeça para baixo', 'a imagem vira junto'],
   ],
   camera: (width, height, gpu) => `Câmera ${width}×${height} · ${gpu ? 'GPU' : 'padrão'}`,
@@ -100,6 +149,22 @@ const en: Strings = {
       title: 'How others see you',
       detail: 'Shows the image without mirroring it.',
     },
+    volumeZoom: {
+      title: 'Zoom with the volume keys',
+      detail: 'The volume keys zoom in and out. Off, they change the volume again.',
+    },
+    dragInertia: {
+      title: 'Drag inertia',
+      detail: 'After a quick drag, the image keeps sliding a little.',
+    },
+    rememberZoom: {
+      title: 'Remember the zoom',
+      detail: 'Opens the app at the zoom and position it was left at.',
+    },
+    zoomHaptics: {
+      title: 'Tick at the limits',
+      detail: 'A light tick when the pinch reaches 1× or 10×.',
+    },
   },
   sensitivity: {
     title: 'Sensitivity',
@@ -112,6 +177,24 @@ const en: Strings = {
     ],
     onlyWithAutoLight: 'Only with automatic light on.',
   },
+  sharpening: {
+    title: 'Sharpening type',
+    types: {
+      smooth: ['Smooth', 'Softens skin texture and noise without blurring outlines.'],
+      natural: ['Natural', 'Sharpens edges, more the further it zooms.'],
+      detail: ['Detail', 'Strong sharpening and local contrast, for shaving.'],
+    },
+    onlyWithGpu: 'Only with Sharpening (GPU) on.',
+  },
+  shortcuts: {
+    fillLight: 'Light',
+    sharpening: 'Sharpening',
+    sharpeningOff: 'Sharpening: turn on the GPU',
+    freeze: 'Freeze',
+    unfreeze: 'Unfreeze',
+    close: 'Close shortcuts',
+  },
+  zoomTitle: 'Zoom',
   unsupported: 'Not available on this phone',
   gpuFailed: 'The GPU did not start on this phone; the standard mode is still in use.',
   gesturesTitle: 'Gestures',
@@ -121,7 +204,8 @@ const en: Strings = {
     ['Double tap', 'to 1× and back'],
     ['Long press', 'freezes and unfreezes'],
     ['Right edge, up or down', 'brighter or darker'],
-    ['Right edge, inwards', 'shows the gear'],
+    ['Right edge, inwards', 'opens the shortcuts'],
+    ['Volume keys', 'zoom in and out'],
     ['Phone upside down', 'the picture turns over too'],
   ],
   camera: (width, height, gpu) => `Camera ${width}×${height} · ${gpu ? 'GPU' : 'standard'}`,

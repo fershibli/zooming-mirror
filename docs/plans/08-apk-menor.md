@@ -1,6 +1,6 @@
 # 08 · APK menor
 
-**Status:** Aprovado · **Esforço:** baixo
+**Status:** Feito · **Esforço:** baixo
 
 ## Objetivo
 

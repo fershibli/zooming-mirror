@@ -1,6 +1,6 @@
 # 19 · Tipo de nitidez
 
-**Status:** Backlog · **Esforço:** médio
+**Status:** Feito · **Esforço:** médio
 
 ## Objetivo
 
@@ -21,9 +21,11 @@ segundo passo do shader aplica:
 
 - Os três tipos usam o mesmo passo e mudam só os uniforms e um `#define`. Trocar
   de tipo não reinicia a câmera.
-- O tipo fica nos ajustes, como três opções lado a lado. Também é um bom
-  atalho para o círculo de atalhos (plano 20): um toque passa para o próximo
-  tipo, e o círculo do zoom mostra o nome do tipo por um instante.
+- O tipo fica nos ajustes, como três opções lado a lado. Também é um atalho
+  do círculo de atalhos (plano 20): um toque passa para o próximo tipo, e o
+  rótulo do botão mostra o tipo escolhido.
+- Cada tipo é um programa de GPU próprio, compilado uma vez, então a troca não
+  reinicia a câmera e vale também para a imagem congelada.
 - O realce continua dependendo do zoom, como no plano 02. Em 1× quase não
   muda nada, e o efeito cresce conforme amplia.
 

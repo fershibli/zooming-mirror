@@ -4,19 +4,24 @@ import android.content.Context
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewConfiguration
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * Every gesture of the mirror, from raw touches:
  *
  * - pinch: zoom (and pan with both fingers);
- * - one finger: pan;
+ * - one finger: pan, and a quick one-finger drag flings;
  * - double tap: to 1× and back;
  * - long press: freeze;
  * - starting on the right edge, vertical: manual exposure;
- * - starting on the right edge, inwards: the settings gear.
+ * - starting on the right edge, inwards: the shortcut wheel, and the same
+ *   finger can go on to a shortcut and let go on it.
+ *
+ * The volume keys zoom too, in MirrorView itself.
  */
 class MirrorGestures(context: Context, private val view: View, private val listener: Listener) {
   interface Listener {
@@ -25,6 +30,9 @@ class MirrorGestures(context: Context, private val view: View, private val liste
     fun onPinchEnd()
     fun onPan(dx: Float, dy: Float)
     fun onPanEnd()
+
+    /** A quick one-finger drag let go at this speed (pixels per second). */
+    fun onFling(velocityX: Float, velocityY: Float)
     fun onDoubleTap(x: Float, y: Float)
     fun onLongPress()
 
@@ -32,12 +40,18 @@ class MirrorGestures(context: Context, private val view: View, private val liste
     fun onSlideStart(): Boolean
     fun onSlide(fraction: Float)
     fun onSlideEnd()
-    fun onSettingsSwipe()
+    fun onShortcutsSwipe()
+
+    /** The finger that opened the shortcuts, until it lets go ([end]). */
+    fun onShortcutsDrag(x: Float, y: Float, end: Boolean, cancelled: Boolean)
   }
 
-  private enum class Mode { IDLE, TOUCH, EDGE, SLIDE, DONE }
+  private enum class Mode { IDLE, TOUCH, EDGE, SLIDE, WHEEL }
 
   private val slop = ViewConfiguration.get(context).scaledTouchSlop
+  private val minFling = ViewConfiguration.get(context).scaledMinimumFlingVelocity
+  private val maxFling = ViewConfiguration.get(context).scaledMaximumFlingVelocity
+  private var velocity: VelocityTracker? = null
   private val edgeWidth = EDGE_WIDTH_DP * context.resources.displayMetrics.density
   private var mode = Mode.IDLE
   private var downX = 0f
@@ -47,6 +61,9 @@ class MirrorGestures(context: Context, private val view: View, private val liste
   private var lastFocusX = 0f
   private var lastFocusY = 0f
   private var panned = false
+
+  /** A second finger came down at some point: no fling at the end. */
+  private var multiTouch = false
 
   private val scaleDetector = ScaleGestureDetector(
     context,
@@ -102,14 +119,23 @@ class MirrorGestures(context: Context, private val view: View, private val liste
       lastX = event.x
       lastY = event.y
       panned = false
+      multiTouch = false
+      velocity?.recycle()
+      velocity = VelocityTracker.obtain()
     }
+    velocity?.addMovement(event)
     when (mode) {
       Mode.SLIDE -> {
         if (event.actionMasked == MotionEvent.ACTION_MOVE) {
           listener.onSlide((downY - event.y) / (view.height * SLIDE_HEIGHT))
         }
       }
-      Mode.DONE, Mode.IDLE -> Unit
+      Mode.WHEEL -> when (event.actionMasked) {
+        MotionEvent.ACTION_MOVE -> listener.onShortcutsDrag(event.x, event.y, end = false, cancelled = false)
+        MotionEvent.ACTION_UP -> listener.onShortcutsDrag(event.x, event.y, end = true, cancelled = false)
+        MotionEvent.ACTION_CANCEL -> listener.onShortcutsDrag(event.x, event.y, end = true, cancelled = true)
+      }
+      Mode.IDLE -> Unit
       Mode.TOUCH, Mode.EDGE -> {
         scaleDetector.onTouchEvent(event)
         tapDetector.onTouchEvent(event)
@@ -117,7 +143,7 @@ class MirrorGestures(context: Context, private val view: View, private val liste
       }
     }
     if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-      finish()
+      finish(event.actionMasked == MotionEvent.ACTION_UP)
     }
     return true
   }
@@ -125,7 +151,10 @@ class MirrorGestures(context: Context, private val view: View, private val liste
   private fun track(event: MotionEvent) {
     when (event.actionMasked) {
       // A second finger makes it a pinch, wherever the first one started.
-      MotionEvent.ACTION_POINTER_DOWN -> mode = Mode.TOUCH
+      MotionEvent.ACTION_POINTER_DOWN -> {
+        mode = Mode.TOUCH
+        multiTouch = true
+      }
       // Back to one finger after a pinch: pan on from where that finger is,
       // or the image would jump by the distance between the two.
       MotionEvent.ACTION_POINTER_UP -> if (event.pointerCount == 2) {
@@ -163,20 +192,31 @@ class MirrorGestures(context: Context, private val view: View, private val liste
       return true
     }
     if (dx < -slop && abs(dx) >= abs(dy)) {
-      mode = Mode.DONE
+      mode = Mode.WHEEL
       cancelTaps(event)
-      listener.onSettingsSwipe()
+      listener.onShortcutsSwipe()
+      listener.onShortcutsDrag(event.x, event.y, end = false, cancelled = false)
     }
     return false
   }
 
-  private fun finish() {
+  private fun finish(released: Boolean) {
     if (mode == Mode.SLIDE) {
       listener.onSlideEnd()
     }
     if (panned) {
-      listener.onPanEnd()
+      val tracker = velocity
+      tracker?.computeCurrentVelocity(1000, maxFling.toFloat())
+      val vx = tracker?.xVelocity ?: 0f
+      val vy = tracker?.yVelocity ?: 0f
+      if (released && mode == Mode.TOUCH && !multiTouch && hypot(vx, vy) >= minFling) {
+        listener.onFling(vx, vy)
+      } else {
+        listener.onPanEnd()
+      }
     }
+    velocity?.recycle()
+    velocity = null
     panned = false
     mode = Mode.IDLE
   }

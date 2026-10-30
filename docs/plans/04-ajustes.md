@@ -1,6 +1,6 @@
 # 04 · Tela de ajustes
 
-**Status:** Aprovado · **Esforço:** médio
+**Status:** Feito · **Esforço:** médio
 
 ## Objetivo
 

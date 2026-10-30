@@ -1,6 +1,6 @@
 # 05 · Toque duplo vai e volta
 
-**Status:** Aprovado · **Esforço:** baixo
+**Status:** Feito · **Esforço:** baixo
 
 ## Objetivo
 

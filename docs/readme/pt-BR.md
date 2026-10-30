@@ -14,7 +14,10 @@ Native, TypeScript e uma pequena view em Kotlin sobre o CameraX.
   cheia.
 - **Afaste os dedos** para aproximar e **junte os dedos** para afastar, até 10×.
   O ponto entre os dedos fica parado, e mover os dois dedos desloca a imagem.
-- **Arraste com um dedo** para se mover pela imagem ampliada.
+- **Arraste com um dedo** para se mover pela imagem ampliada. Um arraste rápido
+  continua deslizando um pouco depois de soltar.
+- **Os botões de volume** aproximam e afastam, em volta do centro, para usar com
+  uma mão só.
 - **Toque duplo** vai para 1×, e outro toque duplo volta para o zoom em que você
   estava.
 - **Toque longo** congela a imagem; zoom e arraste continuam funcionando nela.
@@ -22,10 +25,15 @@ Native, TypeScript e uma pequena view em Kotlin sobre o CameraX.
 - **Deslize para cima ou para baixo na borda direita** para clarear ou escurecer
   a imagem.
 - **Arraste da borda direita para dentro**, à altura do círculo do zoom, para
-  mostrar uma engrenagem; toque nela para abrir os ajustes.
+  abrir os atalhos: **Luz**, **Nitidez**, **Congelar** e **Ajustes**. Toque em
+  um, ou continue com o dedo na tela, leve-o até um e solte.
+- O atalho **Luz** transforma a tela numa luz para lugares escuros: brilho no
+  máximo e uma borda branca em volta da imagem, que fica um pouco menor.
 - Enquanto o zoom ou a luz mudam, um círculo translúcido na parte de baixo da
   tela mostra o valor e some assim que você solta. Arrastar com um dedo nunca o
   mostra.
+- O zoom dá um toque leve ao chegar a 1× ou a 10×, e o app abre de novo no zoom
+  e na posição em que ficou.
 - A tela não apaga enquanto o app está aberto.
 - Segure o celular de cabeça para baixo, com a câmera embaixo, para ver o
   queixo e o pescoço de baixo: a imagem e os gestos viram junto, mesmo com a
@@ -41,8 +49,13 @@ Native, TypeScript e uma pequena view em Kotlin sobre o CameraX.
 | Sensibilidade          | média     | Quanto a luz na tela precisa mudar para ser ajustada de novo.            |
 | Prioridade de rosto    | ligado    | A medição com prioridade de rosto da própria câmera, se houver.          |
 | Alta resolução         | ligado    | Pede até 4K à câmera, em vez do padrão dela (até 1080p).                 |
-| Nitidez (GPU)          | desligado | Experimental: ampliação bicúbica e realce de bordas na GPU.              |
+| Nitidez (GPU)          | desligado | Experimental: ampliação bicúbica e um segundo passo na GPU.              |
+| Tipo de nitidez        | natural   | Lisa (pele mais lisa), Natural ou Detalhe (para a barba). Só com GPU.    |
 | Como os outros te veem | desligado | Mostra a imagem sem espelhar.                                            |
+| Zoom pelo volume       | ligado    | Desligado, os botões de volume voltam a mudar o volume.                  |
+| Inércia no arraste     | ligado    | Um arraste rápido continua deslizando depois de soltar.                  |
+| Lembrar o zoom         | ligado    | Abre no zoom e na posição em que o app ficou.                            |
+| Vibrar nos limites     | ligado    | Um toque leve quando o zoom chega a 1× ou a 10×.                         |
 
 O que o aparelho não suporta aparece apagado. O pé da tela mostra o tamanho que
 a câmera realmente entrega, como a luz está sendo segurada e a versão do app.
@@ -80,9 +93,12 @@ A imagem chega à tela de um de dois jeitos:
   tela, então um stream grande ainda acrescenta detalhe no zoom.
 - **GPU (experimental):** um passo próprio em OpenGL ES. Cada pixel da tela é
   levado pelo zoom até o quadro da câmera e amostrado com Catmull-Rom (bicúbico)
-  quando amplia; um segundo passo aplica realce de bordas adaptativo ao
-  contraste, mais forte quanto maior o zoom. Se o caminho da GPU não iniciar, o
-  app volta ao padrão e apaga o ajuste.
+  quando amplia. Um segundo passo faz o que o **Tipo de nitidez** pede: realce
+  de bordas adaptativo ao contraste (Natural), o mesmo mais forte e com
+  contraste local no brilho para os fios curtos aparecerem (Detalhe), ou um
+  filtro bilateral que mistura a textura da pele e o ruído mas mantém as bordas
+  (Lisa); todos mais fortes quanto maior o zoom. Se o caminho da GPU não
+  iniciar, o app volta ao padrão e apaga o ajuste.
 
 Sozinha, a câmera reajusta a exposição o tempo todo: basta se aproximar ou se
 afastar para o brilho mudar. Por isso o app _segura_ a exposição e o balanço de
@@ -119,15 +135,16 @@ arquivo por plano.
 ### Arquitetura
 
 - `App.tsx` — a raiz; esconde as barras do sistema e mostra o espelho.
-- `src/Mirror.tsx` — pede a permissão da câmera e mostra o espelho, a
-  engrenagem e os ajustes.
-- `src/Settings.tsx`, `src/GearButton.tsx` — a tela de ajustes e a engrenagem
-  escondida que a abre; `src/store/settings.ts` guarda os ajustes (Zustand +
+- `src/Mirror.tsx` — pede a permissão da câmera e mostra o espelho, os atalhos
+  e os ajustes.
+- `src/ShortcutWheel.tsx`, `src/Settings.tsx` — o círculo de atalhos escondido
+  e a tela de ajustes; `src/store/settings.ts` guarda os ajustes (Zustand +
   AsyncStorage).
 - `modules/mirror-view/` — módulo nativo local (Kotlin):
   - `MirrorView` liga a câmera e amarra tudo;
-  - `MirrorGestures` transforma toques em zoom, arraste, toque duplo,
-    congelar, o deslizar da exposição e o arraste da engrenagem;
+  - `MirrorGestures` transforma toques em zoom, arraste com inércia, toque
+    duplo, congelar, o deslizar da exposição e o arraste dos atalhos; os
+    botões de volume dão zoom na própria `MirrorView`;
   - `PinchZoom` é o zoom em números; `PreviewRenderer` e `GlRenderer` (com
     `GlShaders`) o transformam em pixels;
   - `Exposure` mede a luz, e `ValueIndicator` é o círculo translúcido.

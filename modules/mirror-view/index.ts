@@ -1,1 +1,7 @@
-export { MirrorView, type CameraInfo, type MirrorViewProps } from './src/MirrorView';
+export {
+  MirrorView,
+  type CameraInfo,
+  type MirrorViewProps,
+  type MirrorViewRef,
+  type ShortcutsDrag,
+} from './src/MirrorView';
