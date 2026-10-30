@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.0 (2026-10-30)
+
+### Novidades
+
+- a shortcut wheel on the right edge (23653c5)
+- a fill light from the screen (15901e1)
+- choose how the GPU path sharpens (bcbda94)
+- zoom with the volume keys (dc869a4)
+- open at the zoom the app was left at (f07bba3)
+- a quick drag keeps the image sliding (437f123)
+- a light tick when the pinch reaches the zoom limits (c367976)
+
 ## v1.3.0 (2026-10-30)
 
 ### Novidades
