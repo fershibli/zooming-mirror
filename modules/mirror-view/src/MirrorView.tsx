@@ -34,6 +34,8 @@ export type MirrorViewProps = ViewProps & {
   rememberZoom?: boolean;
   /** The volume keys zoom instead of changing the volume (on by default). */
   volumeZoom?: boolean;
+  /** The screen as a light: full brightness and a white border (off by default). */
+  fillLight?: boolean;
   /** An inward swipe from the right edge, at the zoom circle's height. */
   onSettingsGesture?: () => void;
   onCameraInfo?: (event: NativeSyntheticEvent<CameraInfo>) => void;
