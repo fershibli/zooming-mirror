@@ -2,9 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+/** Levels of `lightSensitivity`, 0 to 4; the highest never holds the light. */
+export const SENSITIVITY_LEVELS = 5;
+
 export type Settings = {
-  /** Meter the light on what is on screen while zoomed. */
+  /** The camera fits the light to what is on screen; off, it stays locked. */
   autoLight: boolean;
+  /**
+   * How far the light on screen has to change before the camera fits it again:
+   * 0 only for big changes, 4 all the time (the camera's own behaviour).
+   */
+  lightSensitivity: number;
   facePriority: boolean;
   /** Ask the camera for up to 4K instead of its default (≤ 1080p). */
   highResolution: boolean;
@@ -14,17 +22,21 @@ export type Settings = {
   trueView: boolean;
 };
 
-export type SettingKey = keyof Settings;
+/** The settings that are a plain switch. */
+export type ToggleKey = {
+  [K in keyof Settings]: Settings[K] extends boolean ? K : never;
+}[keyof Settings];
 
 type SettingsState = Settings & {
   hydrated: boolean;
-  setSetting: (key: SettingKey, value: boolean) => void;
+  setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 };
 
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
       autoLight: true,
+      lightSensitivity: 2,
       facePriority: true,
       highResolution: true,
       gpuSharpening: false,
@@ -35,8 +47,16 @@ export const useSettings = create<SettingsState>()(
     {
       name: 'zooming-mirror/settings',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ autoLight, facePriority, highResolution, gpuSharpening, trueView }) => ({
+      partialize: ({
         autoLight,
+        lightSensitivity,
+        facePriority,
+        highResolution,
+        gpuSharpening,
+        trueView,
+      }) => ({
+        autoLight,
+        lightSensitivity,
         facePriority,
         highResolution,
         gpuSharpening,
