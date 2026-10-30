@@ -29,16 +29,18 @@ TypeScript and a small Kotlin view on CameraX.
 
 ### Settings
 
-| Setting            | Default | What it does                                                       |
-| ------------------ | ------- | ------------------------------------------------------------------ |
-| Automatic light    | on      | While zoomed, exposure and white balance follow what is on screen. |
-| Face priority      | on      | The camera's own face-priority metering, where it has one.         |
-| High resolution    | on      | Asks the camera for up to 4K instead of its default (≤ 1080p).     |
-| Sharpening (GPU)   | off     | Experimental: bicubic enlarging plus edge sharpening on the GPU.   |
-| How others see you | off     | Shows the image without mirroring it.                              |
+| Setting            | Default | What it does                                                          |
+| ------------------ | ------- | --------------------------------------------------------------------- |
+| Automatic light    | on      | Exposure and white balance fit what is on screen. Off, they stay put. |
+| Sensitivity        | medium  | How much the light on screen has to change before it is fitted again. |
+| Face priority      | on      | The camera's own face-priority metering, where it has one.            |
+| High resolution    | on      | Asks the camera for up to 4K instead of its default (≤ 1080p).        |
+| Sharpening (GPU)   | off     | Experimental: bicubic enlarging plus edge sharpening on the GPU.      |
+| How others see you | off     | Shows the image without mirroring it.                                 |
 
 Settings the phone cannot do are greyed out. The bottom of the screen shows the
-size the camera actually delivers and the app version.
+size the camera actually delivers, how the light is being held and the app
+version.
 
 If the camera permission was denied, the screen stays black: tap it to be asked
 again, or to land on the app settings once Android stops asking.
@@ -77,11 +79,23 @@ The picture reaches the screen one of two ways:
   sharpening, stronger the further it zooms. If the GPU path cannot start, the
   app falls back to the standard one and greys the setting out.
 
-With **Automatic light**, the camera meters exposure and white balance on the
-visible area after every gesture. Cameras that cannot take a metering area get
-a slow loop instead, which reads the brightness of what is on screen and nudges
-the exposure compensation. The manual slide on the right edge adds its own
-compensation on top.
+Left alone, a camera re-exposes all the time: moving closer or further away is
+enough to change the brightness. So the app _holds_ the exposure and white
+balance with the camera's own locks, and lets go only when it should:
+
+- **Automatic light** on: the camera meters again once the brightness of what
+  is on screen has drifted past the **Sensitivity** for a moment (from twice
+  or half as bright for two seconds at the lowest, to small changes for half a
+  second at high). While zoomed, it meters on the visible area only. At the
+  highest sensitivity nothing is held, and cameras that cannot take a metering
+  area get a slow loop that nudges the exposure compensation instead.
+- **Automatic light** off: held from the moment the camera has found the light.
+- The manual slide on the right edge adds its own compensation on top, which
+  the camera applies even while held.
+
+Every frame reports whether the lock is really on. Where it is not, or the
+camera has none, a loop holds the brightness with the exposure compensation
+instead; the settings footer says which one is in use.
 
 The camera view is a local native module (`modules/mirror-view`), so it does not
 exist in Expo Go. Use the APK from a release or a development build.

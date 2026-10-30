@@ -32,16 +32,17 @@ Native, TypeScript e uma pequena view em Kotlin sobre o CameraX.
 
 ### Ajustes
 
-| Ajuste                 | Padrão    | O que faz                                                          |
-| ---------------------- | --------- | ------------------------------------------------------------------ |
-| Luz automática         | ligado    | Com zoom, exposição e balanço de branco seguem o que está na tela. |
-| Prioridade de rosto    | ligado    | A medição com prioridade de rosto da própria câmera, se houver.    |
-| Alta resolução         | ligado    | Pede até 4K à câmera, em vez do padrão dela (até 1080p).           |
-| Nitidez (GPU)          | desligado | Experimental: ampliação bicúbica e realce de bordas na GPU.        |
-| Como os outros te veem | desligado | Mostra a imagem sem espelhar.                                      |
+| Ajuste                 | Padrão    | O que faz                                                                |
+| ---------------------- | --------- | ------------------------------------------------------------------------ |
+| Luz automática         | ligado    | Exposição e balanço de branco se ajustam à tela. Desligada, ficam fixos. |
+| Sensibilidade          | média     | Quanto a luz na tela precisa mudar para ser ajustada de novo.            |
+| Prioridade de rosto    | ligado    | A medição com prioridade de rosto da própria câmera, se houver.          |
+| Alta resolução         | ligado    | Pede até 4K à câmera, em vez do padrão dela (até 1080p).                 |
+| Nitidez (GPU)          | desligado | Experimental: ampliação bicúbica e realce de bordas na GPU.              |
+| Como os outros te veem | desligado | Mostra a imagem sem espelhar.                                            |
 
 O que o aparelho não suporta aparece apagado. O pé da tela mostra o tamanho que
-a câmera realmente entrega e a versão do app.
+a câmera realmente entrega, como a luz está sendo segurada e a versão do app.
 
 Se a permissão da câmera foi negada, a tela fica preta: toque nela para o
 pedido aparecer de novo, ou para abrir as configurações do app quando o Android
@@ -80,10 +81,24 @@ A imagem chega à tela de um de dois jeitos:
   contraste, mais forte quanto maior o zoom. Se o caminho da GPU não iniciar, o
   app volta ao padrão e apaga o ajuste.
 
-Com **Luz automática**, a câmera mede exposição e balanço de branco na área
-visível depois de cada gesto. Câmeras que não aceitam área de medição usam um
-laço lento: ele lê o brilho do que está na tela e ajusta a compensação de
-exposição. O deslizar manual na borda direita soma a própria compensação.
+Sozinha, a câmera reajusta a exposição o tempo todo: basta se aproximar ou se
+afastar para o brilho mudar. Por isso o app _segura_ a exposição e o balanço de
+branco com as travas da própria câmera, e só solta quando deve:
+
+- **Luz automática** ligada: a câmera mede de novo quando o brilho do que está
+  na tela se afasta além da **Sensibilidade** por um instante (do dobro ou da
+  metade por dois segundos, na mínima, a mudanças pequenas por meio segundo, na
+  alta). Com zoom, mede só a área visível. Na sensibilidade máxima nada fica
+  segurado, e câmeras que não aceitam área de medição usam um laço lento que
+  ajusta a compensação de exposição.
+- **Luz automática** desligada: segura a luz a partir do momento em que a
+  câmera a encontra.
+- O deslizar manual na borda direita soma a própria compensação, que a câmera
+  aplica mesmo com a luz segurada.
+
+Cada quadro informa se a trava está mesmo valendo. Onde não está, ou a câmera
+não tem trava, um laço segura o brilho pela compensação de exposição; o pé da
+tela de ajustes diz qual dos dois está em uso.
 
 A view da câmera é um módulo nativo local (`modules/mirror-view`), então não
 existe no Expo Go. Use o APK de uma release ou um development build.
