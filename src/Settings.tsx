@@ -21,7 +21,7 @@ import { SENSITIVITY_LEVELS, type ToggleKey, useSettings } from './store/setting
 const ORDER: ToggleKey[] = ['facePriority', 'highResolution', 'gpuSharpening', 'trueView'];
 
 /** The zoom's own extras, each one easy to turn off. */
-const ZOOM_ORDER: ToggleKey[] = ['zoomHaptics'];
+const ZOOM_ORDER: ToggleKey[] = ['dragInertia', 'zoomHaptics'];
 
 /** False only when the camera said it cannot; unknown counts as available. */
 function isAvailable(key: ToggleKey, camera: CameraInfo | null): boolean {

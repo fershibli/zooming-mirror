@@ -17,6 +17,7 @@ class MirrorViewModule : Module() {
       Prop("gpuSharpening") { view: MirrorView, value: Boolean -> view.gpuSharpening = value }
       Prop("trueView") { view: MirrorView, value: Boolean -> view.trueView = value }
       Prop("zoomHaptics") { view: MirrorView, value: Boolean -> view.zoomHaptics = value }
+      Prop("dragInertia") { view: MirrorView, value: Boolean -> view.dragInertia = value }
 
       OnViewDidUpdateProps { view ->
         view.applySettings()

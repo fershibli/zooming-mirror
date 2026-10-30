@@ -11,6 +11,7 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.widget.OverScroller
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
@@ -29,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlin.math.sign
 
 /**
@@ -50,6 +52,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   var gpuSharpening = false
   var trueView = false
   var zoomHaptics = true
+  var dragInertia = true
 
   private var renderer: MirrorRenderer = PreviewRenderer(context)
   private val zoom = PinchZoom { renderer.onZoomChanged(it) }
@@ -89,6 +92,19 @@ class MirrorView(context: Context, appContext: AppContext) :
   /** The last zoomed state, which a double tap at 1× goes back to. */
   private var lastZoomed: FloatArray? = null
   private val meterSoon = Runnable { meter() }
+
+  /** Keeps a quick drag going after the finger leaves, slowing down. */
+  private val scroller = OverScroller(context)
+  private val flingStep = object : Runnable {
+    override fun run() {
+      if (scroller.computeScrollOffset()) {
+        zoom.set(zoom.scale, scroller.currX.toFloat(), scroller.currY.toFloat())
+        postOnAnimation(this)
+      } else {
+        afterMove()
+      }
+    }
+  }
 
   init {
     addView(renderer.view, matchParent())
@@ -172,7 +188,13 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   @SuppressLint("ClickableViewAccessibility")
-  override fun onTouchEvent(event: MotionEvent): Boolean = gestures.onTouchEvent(event)
+  override fun onTouchEvent(event: MotionEvent): Boolean {
+    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+      // Any new touch catches the image where it is.
+      stopFling()
+    }
+    return gestures.onTouchEvent(event)
+  }
 
   // ---- Camera ----
 
@@ -288,6 +310,12 @@ class MirrorView(context: Context, appContext: AppContext) :
     exposure.meter(if (zoom.isZoomed) renderer.meteringPoint(zoom, camera) else null)
   }
 
+  /** After the image stops moving: the state to go back to, and the light for it. */
+  private fun afterMove() {
+    rememberZoom()
+    scheduleMeter()
+  }
+
   private fun rememberZoom() {
     if (zoom.isZoomed) {
       lastZoomed = floatArrayOf(zoom.scale, zoom.translationX, zoom.translationY)
@@ -328,8 +356,37 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onPanEnd() {
-    rememberZoom()
-    scheduleMeter()
+    afterMove()
+  }
+
+  override fun onFling(velocityX: Float, velocityY: Float) {
+    if (!dragInertia || !zoom.isZoomed) {
+      afterMove()
+      return
+    }
+    // Same limits as the pan: the image keeps covering the view.
+    val maxX = ((zoom.scale - 1) * zoom.width / 2).toInt()
+    val maxY = ((zoom.scale - 1) * zoom.height / 2).toInt()
+    scroller.fling(
+      zoom.translationX.roundToInt(),
+      zoom.translationY.roundToInt(),
+      velocityX.roundToInt(),
+      velocityY.roundToInt(),
+      -maxX,
+      maxX,
+      -maxY,
+      maxY
+    )
+    removeCallbacks(flingStep)
+    postOnAnimation(flingStep)
+  }
+
+  private fun stopFling() {
+    if (!scroller.isFinished) {
+      scroller.forceFinished(true)
+      removeCallbacks(flingStep)
+      afterMove()
+    }
   }
 
   override fun onDoubleTap(x: Float, y: Float) {
@@ -385,6 +442,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   private fun animateTo(target: FloatArray) {
+    stopFling()
     animator?.cancel()
     val from = floatArrayOf(zoom.scale, zoom.translationX, zoom.translationY)
     indicator.show(ValueIndicator.zoom(zoom.scale))
@@ -413,6 +471,8 @@ class MirrorView(context: Context, appContext: AppContext) :
   fun release() {
     displayManager.unregisterDisplayListener(displayListener)
     animator?.cancel()
+    scroller.forceFinished(true)
+    removeCallbacks(flingStep)
     removeCallbacks(meterSoon)
     scope.cancel()
     exposure.detach()

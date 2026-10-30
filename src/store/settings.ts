@@ -22,6 +22,8 @@ export type Settings = {
   trueView: boolean;
   /** A light tick when the pinch reaches 1× or the top zoom. */
   zoomHaptics: boolean;
+  /** A quick one-finger drag keeps sliding a little after the finger leaves. */
+  dragInertia: boolean;
 };
 
 /** Everything a fresh install starts with; saved settings are merged over it. */
@@ -33,6 +35,7 @@ const DEFAULTS: Settings = {
   gpuSharpening: false,
   trueView: false,
   zoomHaptics: true,
+  dragInertia: true,
 };
 
 const KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];

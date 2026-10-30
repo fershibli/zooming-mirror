@@ -26,6 +26,8 @@ export type MirrorViewProps = ViewProps & {
   trueView: boolean;
   /** A light tick when the pinch reaches 1× or the top zoom (on by default). */
   zoomHaptics?: boolean;
+  /** A quick one-finger drag keeps sliding a little (on by default). */
+  dragInertia?: boolean;
   /** An inward swipe from the right edge, at the zoom circle's height. */
   onSettingsGesture?: () => void;
   onCameraInfo?: (event: NativeSyntheticEvent<CameraInfo>) => void;

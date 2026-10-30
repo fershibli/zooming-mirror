@@ -47,6 +47,10 @@ const pt: Strings = {
       title: 'Como os outros te veem',
       detail: 'Mostra a imagem sem espelhar.',
     },
+    dragInertia: {
+      title: 'Inércia no arraste',
+      detail: 'Depois de um arraste rápido, a imagem continua deslizando um pouco.',
+    },
     zoomHaptics: {
       title: 'Vibrar nos limites',
       detail: 'Um toque leve quando a pinça chega a 1× ou a 10×.',
@@ -105,6 +109,10 @@ const en: Strings = {
     trueView: {
       title: 'How others see you',
       detail: 'Shows the image without mirroring it.',
+    },
+    dragInertia: {
+      title: 'Drag inertia',
+      detail: 'After a quick drag, the image keeps sliding a little.',
     },
     zoomHaptics: {
       title: 'Tick at the limits',
