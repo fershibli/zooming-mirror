@@ -4,6 +4,8 @@ import {
   Animated,
   BackHandler,
   Image,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,6 +29,11 @@ const ORDER: ToggleKey[] = ['facePriority', 'highResolution', 'gpuSharpening', '
 
 /** The zoom's own extras, each one easy to turn off. */
 const ZOOM_ORDER: ToggleKey[] = ['volumeZoom', 'dragInertia', 'rememberZoom', 'zoomHaptics'];
+
+/** Finger speed (dp per ms) of a fling at the end of the list that closes it. */
+const CLOSE_FLING = 0.8;
+/** How close to the end (dp) still counts as the end. */
+const END_SLOP = 4;
 
 /** False only when the camera said it cannot; unknown counts as available. */
 function isAvailable(key: ToggleKey, camera: CameraInfo | null): boolean {
@@ -74,6 +81,16 @@ export function Settings({ visible, camera, onClose }: Props) {
     return () => subscription.remove();
   }, [visible, onClose]);
 
+  // Flinging on past the end of the list closes it, like a sheet sliding away.
+  const closeOnFlingPastEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement, velocity } = event.nativeEvent;
+    const atEnd = contentOffset.y + layoutMeasurement.height >= contentSize.height - END_SLOP;
+    // The finger's speed: negative while it pushes the list on towards its end.
+    if (atEnd && velocity && velocity.y < -CLOSE_FLING) {
+      onClose();
+    }
+  };
+
   const version = Constants.expoConfig?.version;
   const autoLight = useSettings((state) => state.autoLight);
   const gpuSharpening = useSettings((state) => state.gpuSharpening);
@@ -89,7 +106,7 @@ export function Settings({ visible, camera, onClose }: Props) {
       pointerEvents={visible ? 'auto' : 'none'}
       style={[styles.overlay, { opacity }]}
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} onScrollEndDrag={closeOnFlingPastEnd}>
         <View style={styles.header}>
           <Image source={require('../assets/gear.png')} style={styles.headerIcon} />
           <Text style={styles.title}>{strings.settings}</Text>
