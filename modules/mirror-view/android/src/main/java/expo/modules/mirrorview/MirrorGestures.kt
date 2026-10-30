@@ -19,6 +19,8 @@ import kotlin.math.hypot
  * - long press: freeze;
  * - starting on the right edge, vertical: manual exposure;
  * - starting on the right edge, inwards: the settings gear.
+ *
+ * The volume keys zoom too, in MirrorView itself.
  */
 class MirrorGestures(context: Context, private val view: View, private val listener: Listener) {
   interface Listener {

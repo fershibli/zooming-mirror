@@ -47,6 +47,10 @@ const pt: Strings = {
       title: 'Como os outros te veem',
       detail: 'Mostra a imagem sem espelhar.',
     },
+    volumeZoom: {
+      title: 'Zoom pelo volume',
+      detail: 'Os botões de volume aproximam e afastam. Desligado, voltam a mudar o volume.',
+    },
     dragInertia: {
       title: 'Inércia no arraste',
       detail: 'Depois de um arraste rápido, a imagem continua deslizando um pouco.',
@@ -82,6 +86,7 @@ const pt: Strings = {
     ['Toque longo', 'congela e descongela'],
     ['Borda direita, na vertical', 'clareia ou escurece'],
     ['Borda direita, para dentro', 'mostra a engrenagem'],
+    ['Botões de volume', 'aproximam e afastam'],
     ['Celular de cabeça para baixo', 'a imagem vira junto'],
   ],
   camera: (width, height, gpu) => `Câmera ${width}×${height} · ${gpu ? 'GPU' : 'padrão'}`,
@@ -113,6 +118,10 @@ const en: Strings = {
     trueView: {
       title: 'How others see you',
       detail: 'Shows the image without mirroring it.',
+    },
+    volumeZoom: {
+      title: 'Zoom with the volume keys',
+      detail: 'The volume keys zoom in and out. Off, they change the volume again.',
     },
     dragInertia: {
       title: 'Drag inertia',
@@ -149,6 +158,7 @@ const en: Strings = {
     ['Long press', 'freezes and unfreezes'],
     ['Right edge, up or down', 'brighter or darker'],
     ['Right edge, inwards', 'shows the gear'],
+    ['Volume keys', 'zoom in and out'],
     ['Phone upside down', 'the picture turns over too'],
   ],
   camera: (width, height, gpu) => `Camera ${width}×${height} · ${gpu ? 'GPU' : 'standard'}`,

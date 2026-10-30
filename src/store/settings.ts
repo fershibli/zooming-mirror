@@ -26,6 +26,8 @@ export type Settings = {
   dragInertia: boolean;
   /** Opens at the zoom and position the app was left at. */
   rememberZoom: boolean;
+  /** The volume keys zoom in and out instead of changing the volume. */
+  volumeZoom: boolean;
 };
 
 /** Everything a fresh install starts with; saved settings are merged over it. */
@@ -39,6 +41,7 @@ const DEFAULTS: Settings = {
   zoomHaptics: true,
   dragInertia: true,
   rememberZoom: true,
+  volumeZoom: true,
 };
 
 const KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];

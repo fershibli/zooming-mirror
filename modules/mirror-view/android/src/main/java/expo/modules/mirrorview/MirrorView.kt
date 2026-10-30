@@ -5,9 +5,11 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Rect
 import android.hardware.display.DisplayManager
+import android.os.Build
 import android.util.Log
 import android.util.Size
 import android.view.HapticFeedbackConstants
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
@@ -54,6 +56,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   var zoomHaptics = true
   var dragInertia = true
   var restoresZoom = true
+  var volumeZoom = true
 
   private var renderer: MirrorRenderer = PreviewRenderer(context)
   private val zoom = PinchZoom { renderer.onZoomChanged(it) }
@@ -98,6 +101,12 @@ class MirrorView(context: Context, appContext: AppContext) :
   private val savedZoom = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
   private var zoomRestored = false
 
+  /** The volume keys zoom in steps; the circle stays up while they are pressed. */
+  private val endVolumeZoom = Runnable {
+    indicator.hide()
+    afterMove()
+  }
+
   /** Keeps a quick drag going after the finger leaves, slowing down. */
   private val scroller = OverScroller(context)
   private val flingStep = object : Runnable {
@@ -112,6 +121,14 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   init {
+    // Focused, so the volume keys come here before the system turns them into
+    // a volume change.
+    isFocusable = true
+    isFocusableInTouchMode = true
+    // The focus is only for the keys: nothing to draw for it.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      defaultFocusHighlightEnabled = false
+    }
     addView(renderer.view, matchParent())
     // A sibling of the image, so the zoom never scales or moves it.
     addView(indicator, ViewGroup.LayoutParams(indicator.diameter, indicator.diameter))
@@ -178,6 +195,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     displayManager.registerDisplayListener(displayListener, null)
+    requestFocus()
     if (settingsApplied) {
       bindCamera()
     }
@@ -202,8 +220,38 @@ class MirrorView(context: Context, appContext: AppContext) :
     if (event.actionMasked == MotionEvent.ACTION_DOWN) {
       // Any new touch catches the image where it is.
       stopFling()
+      if (!hasFocus()) {
+        requestFocus()
+      }
     }
     return gestures.onTouchEvent(event)
+  }
+
+  override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+    val step = if (event.repeatCount > 0) VOLUME_REPEAT_STEP else VOLUME_STEP
+    val factor = when (keyCode) {
+      KeyEvent.KEYCODE_VOLUME_UP -> step
+      KeyEvent.KEYCODE_VOLUME_DOWN -> 1 / step
+      else -> return super.onKeyDown(keyCode, event)
+    }
+    if (!volumeZoom) {
+      return super.onKeyDown(keyCode, event)
+    }
+    stopFling()
+    animator?.cancel()
+    removeCallbacks(endVolumeZoom)
+    val before = zoom.scale
+    // Around the centre of what is on screen, as a one-handed pinch would.
+    zoom.zoomBy(factor, zoom.width / 2, zoom.height / 2, 0f, 0f)
+    indicator.show(ValueIndicator.zoom(zoom.scale))
+    tickAtLimit(before)
+    postDelayed(endVolumeZoom, VOLUME_HOLD_MS)
+    return true
+  }
+
+  override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+    val volumeKey = keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+    return if (volumeZoom && volumeKey) true else super.onKeyUp(keyCode, event)
   }
 
   // ---- Camera ----
@@ -509,6 +557,7 @@ class MirrorView(context: Context, appContext: AppContext) :
     scroller.forceFinished(true)
     removeCallbacks(flingStep)
     removeCallbacks(meterSoon)
+    removeCallbacks(endVolumeZoom)
     scope.cancel()
     exposure.detach()
     cameraProvider?.unbindAll()
@@ -530,6 +579,11 @@ class MirrorView(context: Context, appContext: AppContext) :
     private const val DOUBLE_TAP_MS = 250L
     private const val METER_DELAY_MS = 150L
     private const val CAMERA_INFO_DELAY_MS = 1000L
+
+    /** Zoom per press of a volume key, and per repeat while it is held. */
+    private const val VOLUME_STEP = 1.25f
+    private const val VOLUME_REPEAT_STEP = 1.08f
+    private const val VOLUME_HOLD_MS = 700L
 
     private const val PREFERENCES = "expo.modules.mirrorview"
     private const val KEY_SCALE = "zoomScale"

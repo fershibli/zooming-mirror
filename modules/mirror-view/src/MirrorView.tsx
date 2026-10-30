@@ -30,6 +30,8 @@ export type MirrorViewProps = ViewProps & {
   dragInertia?: boolean;
   /** Opens at the zoom and position it was left at (on by default). */
   rememberZoom?: boolean;
+  /** The volume keys zoom instead of changing the volume (on by default). */
+  volumeZoom?: boolean;
   /** An inward swipe from the right edge, at the zoom circle's height. */
   onSettingsGesture?: () => void;
   onCameraInfo?: (event: NativeSyntheticEvent<CameraInfo>) => void;
