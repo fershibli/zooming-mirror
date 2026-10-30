@@ -1,6 +1,6 @@
 # 13 · Inércia no arraste
 
-**Status:** Backlog · **Esforço:** baixo
+**Status:** Feito · **Esforço:** baixo
 
 ## Objetivo
 

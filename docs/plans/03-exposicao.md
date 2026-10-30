@@ -1,6 +1,6 @@
 # 03 · Exposição que acompanha o zoom
 
-**Status:** Aprovado · **Esforço:** médio
+**Status:** Feito · **Esforço:** médio
 
 ## Objetivo
 

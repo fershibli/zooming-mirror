@@ -1,6 +1,6 @@
 # 09 · Cache do Gradle no build do APK
 
-**Status:** Aprovado · **Esforço:** baixo
+**Status:** Feito · **Esforço:** baixo
 
 ## Objetivo
 

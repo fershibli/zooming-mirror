@@ -1,6 +1,6 @@
 # 20 · Círculo de atalhos
 
-**Status:** Backlog · **Esforço:** médio
+**Status:** Feito · **Esforço:** médio
 
 ## Objetivo
 
@@ -13,16 +13,20 @@ vários botões de uma vez, e a tela continua sem nada no resto do tempo.
 
 - O mesmo gesto de hoje: arrastar da borda direita para dentro, à altura do
   círculo do zoom. Em vez de um botão, aparece um arco de botões em pixel art,
-  centrado no ponto onde o dedo entrou, abrindo para dentro da tela (um
-  semicírculo de raio ≈ 96dp).
+  centrado na borda direita à altura do círculo do zoom, abrindo para dentro da
+  tela (um semicírculo de raio 96dp).
 - Botões, de cima para baixo:
-  1. **Verificar a barba** (plano 21);
-  2. **Tipo de nitidez** (plano 19), que passa para o próximo tipo a cada toque;
+  1. **Luz** (plano 12), que liga e desliga a luz de preenchimento;
+  2. **Nitidez** (plano 19), que passa para o próximo tipo a cada toque;
   3. **Congelar** (o mesmo do toque longo, para quem não conhece o gesto);
-  4. **Ajustes** (a engrenagem de hoje).
+  4. **Ajustes** (a engrenagem de antes).
+
+  O plano 21 acrescenta **Verificar a barba** no topo.
+
 - Cada botão é um círculo de 56dp com ícone de 16×16 em pixel art, na paleta
-  do app, igual à engrenagem. Um rótulo curto aparece enquanto o dedo está
-  sobre o botão.
+  do app, igual à engrenagem, e um rótulo curto ao lado. O botão sob o dedo
+  cresce enquanto ele arrasta; Luz e Congelar ficam com borda dourada quando
+  ligados.
 - Dá para usar de dois jeitos:
   - **Tocar:** solta o arraste, o arco fica na tela e um toque escolhe o botão.
   - **Arrastar e soltar:** sem tirar o dedo, ir até o botão e soltar em cima

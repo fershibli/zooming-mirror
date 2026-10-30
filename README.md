@@ -13,17 +13,24 @@ TypeScript and a small Kotlin view on CameraX.
 - Open the app and allow the camera. The front camera shows up full screen.
 - **Pinch out** to zoom in, **pinch in** to zoom back out, up to 10×. The spot
   between your fingers stays put, and moving both fingers pans around.
-- **Drag with one finger** to move around the zoomed image.
+- **Drag with one finger** to move around the zoomed image. A quick drag keeps
+  sliding a little after you let go.
+- **Volume keys** zoom in and out, around the centre, for one-handed use.
 - **Double tap** to go to 1×, and again to go back to the zoom you were at.
 - **Long press** to freeze the image; zoom and drag still work on it. Long
   press again to go live.
 - **Slide up or down along the right edge** to make the image brighter or
   darker.
 - **Swipe inwards from the right edge**, at the height of the zoom circle, to
-  show a gear; tap it for the settings.
+  open the shortcuts: **Light**, **Sharpening**, **Freeze** and **Settings**.
+  Tap one, or keep the finger down, slide onto one and let go.
+- The **Light** shortcut turns the screen into a light for a dark room: full
+  brightness and a white border around a slightly smaller picture.
 - While the zoom or the light changes, a translucent circle low on the screen
   shows the value, and fades out as soon as you let go. A one-finger drag
   never shows it.
+- The zoom ticks lightly when it reaches 1× or 10×, and the app opens again at
+  the zoom and position it was left at.
 - The screen stays on while the app is open.
 - Hold the phone upside down, with the camera at the bottom, to look at your
   chin and neck from below: the picture and the gestures turn over with it,
@@ -32,14 +39,19 @@ TypeScript and a small Kotlin view on CameraX.
 
 ### Settings
 
-| Setting            | Default | What it does                                                          |
-| ------------------ | ------- | --------------------------------------------------------------------- |
-| Automatic light    | on      | Exposure and white balance fit what is on screen. Off, they stay put. |
-| Sensitivity        | medium  | How much the light on screen has to change before it is fitted again. |
-| Face priority      | on      | The camera's own face-priority metering, where it has one.            |
-| High resolution    | on      | Asks the camera for up to 4K instead of its default (≤ 1080p).        |
-| Sharpening (GPU)   | off     | Experimental: bicubic enlarging plus edge sharpening on the GPU.      |
-| How others see you | off     | Shows the image without mirroring it.                                 |
+| Setting                   | Default | What it does                                                          |
+| ------------------------- | ------- | --------------------------------------------------------------------- |
+| Automatic light           | on      | Exposure and white balance fit what is on screen. Off, they stay put. |
+| Sensitivity               | medium  | How much the light on screen has to change before it is fitted again. |
+| Face priority             | on      | The camera's own face-priority metering, where it has one.            |
+| High resolution           | on      | Asks the camera for up to 4K instead of its default (≤ 1080p).        |
+| Sharpening (GPU)          | off     | Experimental: bicubic enlarging plus a second pass on the GPU.        |
+| Sharpening type           | natural | Smooth (softer skin), Natural, or Detail (for shaving). GPU only.     |
+| How others see you        | off     | Shows the image without mirroring it.                                 |
+| Zoom with the volume keys | on      | Off, the volume keys change the volume again.                         |
+| Drag inertia              | on      | A quick drag keeps sliding after you let go.                          |
+| Remember the zoom         | on      | Opens at the zoom and position the app was left at.                   |
+| Tick at the limits        | on      | A light tick when the zoom reaches 1× or 10×.                         |
 
 Settings the phone cannot do are greyed out. The bottom of the screen shows the
 size the camera actually delivers, how the light is being held and the app
@@ -78,9 +90,12 @@ The picture reaches the screen one of two ways:
   stream still adds detail when zoomed.
 - **GPU (experimental):** an OpenGL ES pass of its own. Every screen pixel is
   mapped through the zoom to the camera frame and sampled with Catmull-Rom
-  (bicubic) when enlarging, then a second pass applies contrast-adaptive
-  sharpening, stronger the further it zooms. If the GPU path cannot start, the
-  app falls back to the standard one and greys the setting out.
+  (bicubic) when enlarging. A second pass then does what **Sharpening type**
+  says: contrast-adaptive sharpening (Natural), the same stronger plus local
+  contrast on brightness so short hairs stand out (Detail), or a bilateral
+  filter that blends skin texture and noise but keeps edges (Smooth); all of
+  them stronger the further it zooms. If the GPU path cannot start, the app
+  falls back to the standard one and greys the setting out.
 
 Left alone, a camera re-exposes all the time: moving closer or further away is
 enough to change the brightness. So the app _holds_ the exposure and white
@@ -117,14 +132,15 @@ Portuguese), one file per plan.
 
 - `App.tsx` — the root; hides the system bars and renders the mirror.
 - `src/Mirror.tsx` — asks for the camera permission and shows the mirror, the
-  gear and the settings.
-- `src/Settings.tsx`, `src/GearButton.tsx` — the settings screen and the hidden
-  gear that opens it; `src/store/settings.ts` keeps the settings (Zustand +
+  shortcuts and the settings.
+- `src/ShortcutWheel.tsx`, `src/Settings.tsx` — the hidden shortcut wheel and
+  the settings screen; `src/store/settings.ts` keeps the settings (Zustand +
   AsyncStorage).
 - `modules/mirror-view/` — local native module (Kotlin):
   - `MirrorView` binds the camera and ties everything together;
-  - `MirrorGestures` turns touches into zoom, pan, double tap, freeze, the
-    exposure slide and the gear swipe;
+  - `MirrorGestures` turns touches into zoom, pan and fling, double tap,
+    freeze, the exposure slide and the shortcut swipe; the volume keys zoom in
+    `MirrorView`;
   - `PinchZoom` is the zoom as numbers; `PreviewRenderer` and `GlRenderer`
     (with `GlShaders`) turn it into pixels;
   - `Exposure` meters the light, `ValueIndicator` is the translucent circle.

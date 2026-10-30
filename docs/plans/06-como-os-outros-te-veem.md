@@ -1,6 +1,6 @@
 # 06 · Como os outros te veem
 
-**Status:** Aprovado · **Esforço:** baixo
+**Status:** Feito · **Esforço:** baixo
 
 ## Objetivo
 

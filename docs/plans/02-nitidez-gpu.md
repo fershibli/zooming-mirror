@@ -1,6 +1,6 @@
 # 02 · Nitidez por GPU
 
-**Status:** Aprovado (experimental, desligado por padrão) · **Esforço:** alto
+**Status:** Feito (experimental, desligado por padrão) · **Esforço:** alto
 
 ## Objetivo
 

@@ -1,6 +1,6 @@
 # 07 · Congelar a imagem
 
-**Status:** Aprovado · **Esforço:** médio
+**Status:** Feito · **Esforço:** médio
 
 ## Objetivo
 
