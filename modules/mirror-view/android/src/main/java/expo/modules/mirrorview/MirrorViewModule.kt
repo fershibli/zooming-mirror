@@ -8,7 +8,7 @@ class MirrorViewModule : Module() {
     Name("MirrorView")
 
     View(MirrorView::class) {
-      Events("onShortcutsGesture", "onShortcutsDrag", "onFreezeChange", "onCameraInfo")
+      Events("onShortcutsGesture", "onShortcutsDrag", "onFreezeChange", "onHudFlip", "onCameraInfo")
 
       Prop("autoLight") { view: MirrorView, value: Boolean -> view.autoLight = value }
       Prop("lightSensitivity") { view: MirrorView, value: Int -> view.lightSensitivity = value }

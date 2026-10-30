@@ -58,6 +58,11 @@ export type MirrorViewProps = ViewProps & {
   /** The same finger, until it lets go: to pick a shortcut by dragging onto it. */
   onShortcutsDrag?: (event: NativeSyntheticEvent<ShortcutsDrag>) => void;
   onFreezeChange?: (event: NativeSyntheticEvent<{ frozen: boolean }>) => void;
+  /**
+   * The phone turned upside down or back. The picture needs nothing, but the
+   * controls drawn over it should turn over by 180°, as the native ones do.
+   */
+  onHudFlip?: (event: NativeSyntheticEvent<{ flipped: boolean }>) => void;
   onCameraInfo?: (event: NativeSyntheticEvent<CameraInfo>) => void;
 };
 

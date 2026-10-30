@@ -5,13 +5,14 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Rect
-import android.hardware.display.DisplayManager
 import android.os.Build
 import android.util.Log
 import android.util.Size
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.OrientationEventListener
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -34,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sign
 
@@ -48,6 +50,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   private val onShortcutsGesture by EventDispatcher()
   private val onShortcutsDrag by EventDispatcher()
   private val onFreezeChange by EventDispatcher()
+  private val onHudFlip by EventDispatcher()
   private val onCameraInfo by EventDispatcher()
 
   // Settings, set from JS. Applied together in applySettings().
@@ -94,18 +97,38 @@ class MirrorView(context: Context, appContext: AppContext) :
   private var laidOutHeight = 0
   private var animator: ValueAnimator? = null
 
-  // The activity is portrait either way up and handles its own configuration
-  // changes, so turning the phone over rotates the display without a new
-  // layout: only this listener hears it, and the camera has to be told.
-  private val displayManager = context.getSystemService(DisplayManager::class.java)
-  private val displayListener = object : DisplayManager.DisplayListener {
-    override fun onDisplayAdded(displayId: Int) = Unit
-
-    override fun onDisplayRemoved(displayId: Int) = Unit
-
-    override fun onDisplayChanged(displayId: Int) {
-      if (displayId == display?.displayId) {
-        updateTargetRotation()
+  /**
+   * The phone held upside down. The screen does not turn (most phones never
+   * rotate an app by 180°), and it does not have to for the picture: camera and
+   * screen turn together, so the face still shows the right way up. Only the
+   * controls do: the zoom circle, the edge gestures and, on the JS side, the
+   * shortcuts and the settings, so they stay where the thumb is.
+   */
+  private var hudFlipped = false
+  private var pendingFlip: Boolean? = null
+  private val confirmFlip = Runnable {
+    pendingFlip?.let { setHudFlipped(it) }
+    pendingFlip = null
+  }
+  private val orientationListener = object : OrientationEventListener(context) {
+    override fun onOrientationChanged(degrees: Int) {
+      if (degrees == ORIENTATION_UNKNOWN) {
+        return
+      }
+      val upsideDown = when {
+        abs(degrees - 180) <= FLIP_WITHIN_DEGREES -> true
+        degrees <= FLIP_WITHIN_DEGREES || degrees >= 360 - FLIP_WITHIN_DEGREES -> false
+        // On its side: keep whatever it was.
+        else -> return
+      }
+      if (upsideDown == hudFlipped) {
+        removeCallbacks(confirmFlip)
+        pendingFlip = null
+      } else if (pendingFlip != upsideDown) {
+        // Held for a moment first, so a wobble does not flip the controls.
+        pendingFlip = upsideDown
+        removeCallbacks(confirmFlip)
+        postDelayed(confirmFlip, FLIP_CONFIRM_MS)
       }
     }
   }
@@ -200,9 +223,15 @@ class MirrorView(context: Context, appContext: AppContext) :
     renderer.layout(imageWidth, imageHeight)
     zoom.setSize(imageWidth.toFloat(), imageHeight.toFloat())
     restoreZoom()
+    layoutControls(width, height)
+  }
 
+  /** The zoom circle and the edge kept from the back gesture, which turn over with the phone. */
+  private fun layoutControls(width: Int, height: Int) {
     val size = indicator.diameter
-    val centreY = (height * (1 - INDICATOR_FROM_BOTTOM)).toInt()
+    // 27% up from the bottom as the phone is held, wherever that bottom is.
+    val fromTop = if (hudFlipped) INDICATOR_FROM_BOTTOM else 1 - INDICATOR_FROM_BOTTOM
+    val centreY = (height * fromTop).toInt()
     indicator.measure(
       MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY),
       MeasureSpec.makeMeasureSpec(size, MeasureSpec.EXACTLY)
@@ -217,15 +246,40 @@ class MirrorView(context: Context, appContext: AppContext) :
     val density = resources.displayMetrics.density
     val exclusionHeight = (EXCLUSION_HEIGHT_DP * density).toInt()
     val exclusionWidth = (EXCLUSION_WIDTH_DP * density).toInt()
+    val left = if (hudFlipped) 0 else width - exclusionWidth
     ViewCompat.setSystemGestureExclusionRects(
       this,
-      listOf(Rect(width - exclusionWidth, centreY - exclusionHeight / 2, width, centreY + exclusionHeight / 2))
+      listOf(Rect(left, centreY - exclusionHeight / 2, left + exclusionWidth, centreY + exclusionHeight / 2))
     )
+  }
+
+  private fun setHudFlipped(flipped: Boolean) {
+    if (flipped == hudFlipped) {
+      return
+    }
+    hudFlipped = flipped
+    gestures.flipped = flipped
+    indicator.rotation = if (flipped) 180f else 0f
+    if (laidOutWidth > 0) {
+      layoutControls(laidOutWidth, laidOutHeight)
+    }
+    onHudFlip(mapOf("flipped" to flipped))
+  }
+
+  // Only while the app is on screen: no sensor in the background.
+  override fun onWindowVisibilityChanged(visibility: Int) {
+    super.onWindowVisibilityChanged(visibility)
+    if (visibility == View.VISIBLE && orientationListener.canDetectOrientation()) {
+      orientationListener.enable()
+    } else {
+      orientationListener.disable()
+      removeCallbacks(confirmFlip)
+      pendingFlip = null
+    }
   }
 
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
-    displayManager.registerDisplayListener(displayListener, null)
     requestFocus()
     if (settingsApplied) {
       bindCamera()
@@ -233,7 +287,7 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   override fun onDetachedFromWindow() {
-    displayManager.unregisterDisplayListener(displayListener)
+    orientationListener.disable()
     setWindowBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
     super.onDetachedFromWindow()
   }
@@ -263,15 +317,6 @@ class MirrorView(context: Context, appContext: AppContext) :
     val window = appContext.currentActivity?.window ?: return
     if (window.attributes.screenBrightness != value) {
       window.attributes = window.attributes.apply { screenBrightness = value }
-    }
-  }
-
-  /** Keeps the picture upright on screen when the phone turns upside down. */
-  private fun updateTargetRotation() {
-    val rotation = display?.rotation ?: return
-    val preview = preview ?: return
-    if (preview.targetRotation != rotation) {
-      preview.targetRotation = rotation
     }
   }
 
@@ -635,7 +680,8 @@ class MirrorView(context: Context, appContext: AppContext) :
   }
 
   fun release() {
-    displayManager.unregisterDisplayListener(displayListener)
+    orientationListener.disable()
+    removeCallbacks(confirmFlip)
     setWindowBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
     animator?.cancel()
     scroller.forceFinished(true)
@@ -657,6 +703,10 @@ class MirrorView(context: Context, appContext: AppContext) :
 
     /** Height of the indicator's centre, as a fraction measured from the bottom. */
     private const val INDICATOR_FROM_BOTTOM = 0.27f
+
+    /** How close to upright or upside down the phone has to be to flip the controls. */
+    private const val FLIP_WITHIN_DEGREES = 50
+    private const val FLIP_CONFIRM_MS = 300L
     private const val EXCLUSION_HEIGHT_DP = 200f
     private const val EXCLUSION_WIDTH_DP = 48f
     private const val DOUBLE_TAP_SCALE = 2.5f

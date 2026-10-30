@@ -46,6 +46,8 @@ export function Mirror() {
   // Not saved: the light and the freeze are for the moment.
   const [fillLight, setFillLight] = useState(false);
   const [frozen, setFrozen] = useState(false);
+  // Upside down, the controls over the picture turn over too.
+  const [hudFlipped, setHudFlipped] = useState(false);
   const mirror = useRef<MirrorViewRef>(null);
   const settings = useSettings(useShallow(pickSettings));
   const setSetting = useSettings((state) => state.setSetting);
@@ -127,7 +129,10 @@ export function Mirror() {
   // The finger that opened the wheel can go on to a shortcut and let go on it.
   const onShortcutsDrag = useCallback(
     (event: NativeSyntheticEvent<ShortcutsDrag>) => {
-      const { x, y, end, cancelled } = event.nativeEvent;
+      const { end, cancelled } = event.nativeEvent;
+      // The wheel is drawn turned over when the phone is upside down.
+      const x = hudFlipped ? size.width - event.nativeEvent.x : event.nativeEvent.x;
+      const y = hudFlipped ? size.height - event.nativeEvent.y : event.nativeEvent.y;
       const hit = cancelled ? null : shortcutAt(x, y, size);
       if (!end) {
         setHovered(hit);
@@ -138,7 +143,7 @@ export function Mirror() {
         pick(hit);
       }
     },
-    [pick, sharpeningAvailable, size],
+    [hudFlipped, pick, sharpeningAvailable, size],
   );
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
@@ -157,20 +162,31 @@ export function Mirror() {
           onShortcutsGesture={openWheel}
           onShortcutsDrag={onShortcutsDrag}
           onFreezeChange={(event) => setFrozen(event.nativeEvent.frozen)}
+          onHudFlip={(event) => setHudFlipped(event.nativeEvent.flipped)}
           onCameraInfo={(event) => setCamera(event.nativeEvent)}
         />
-        <ShortcutWheel
-          visible={wheelOpen && !settingsOpen && size.width > 0}
-          size={size}
-          hovered={hovered}
-          fillLight={fillLight}
-          frozen={frozen}
-          sharpening={settings.sharpening}
-          sharpeningAvailable={sharpeningAvailable}
-          onPick={pick}
-          onClose={closeWheel}
-        />
-        <Settings visible={settingsOpen} camera={camera} onClose={closeSettings} />
+        <View
+          pointerEvents="box-none"
+          style={[StyleSheet.absoluteFill, hudFlipped && styles.flipped]}
+        >
+          <ShortcutWheel
+            visible={wheelOpen && !settingsOpen && size.width > 0}
+            size={size}
+            hovered={hovered}
+            fillLight={fillLight}
+            frozen={frozen}
+            sharpening={settings.sharpening}
+            sharpeningAvailable={sharpeningAvailable}
+            onPick={pick}
+            onClose={closeWheel}
+          />
+          <Settings
+            visible={settingsOpen}
+            camera={camera}
+            flipped={hudFlipped}
+            onClose={closeSettings}
+          />
+        </View>
       </View>
     );
   }
@@ -181,5 +197,8 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  flipped: {
+    transform: [{ rotate: '180deg' }],
   },
 });

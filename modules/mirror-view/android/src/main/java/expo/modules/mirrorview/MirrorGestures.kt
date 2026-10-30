@@ -11,7 +11,10 @@ import kotlin.math.abs
 import kotlin.math.hypot
 
 /**
- * Every gesture of the mirror, from raw touches:
+ * Every gesture of the mirror, from raw touches. "Right edge" is the right
+ * edge as the phone is held: with [flipped] (upside down) it is the view's
+ * left edge, and up and inwards turn over with it.
+ *
  *
  * - pinch: zoom (and pan with both fingers);
  * - one finger: pan, and a quick one-finger drag flings;
@@ -54,6 +57,9 @@ class MirrorGestures(context: Context, private val view: View, private val liste
   private var velocity: VelocityTracker? = null
   private val edgeWidth = EDGE_WIDTH_DP * context.resources.displayMetrics.density
   private var mode = Mode.IDLE
+
+  /** The phone is upside down: the edge gestures move to the other side. */
+  var flipped = false
   private var downX = 0f
   private var downY = 0f
   private var lastX = 0f
@@ -113,7 +119,8 @@ class MirrorGestures(context: Context, private val view: View, private val liste
 
   fun onTouchEvent(event: MotionEvent): Boolean {
     if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-      mode = if (event.x >= view.width - edgeWidth) Mode.EDGE else Mode.TOUCH
+      val atEdge = if (flipped) event.x <= edgeWidth else event.x >= view.width - edgeWidth
+      mode = if (atEdge) Mode.EDGE else Mode.TOUCH
       downX = event.x
       downY = event.y
       lastX = event.x
@@ -127,7 +134,8 @@ class MirrorGestures(context: Context, private val view: View, private val liste
     when (mode) {
       Mode.SLIDE -> {
         if (event.actionMasked == MotionEvent.ACTION_MOVE) {
-          listener.onSlide((downY - event.y) / (view.height * SLIDE_HEIGHT))
+          val up = if (flipped) event.y - downY else downY - event.y
+          listener.onSlide(up / (view.height * SLIDE_HEIGHT))
         }
       }
       Mode.WHEEL -> when (event.actionMasked) {
@@ -191,7 +199,8 @@ class MirrorGestures(context: Context, private val view: View, private val liste
       }
       return true
     }
-    if (dx < -slop && abs(dx) >= abs(dy)) {
+    val inwards = if (flipped) dx > slop else dx < -slop
+    if (inwards && abs(dx) >= abs(dy)) {
       mode = Mode.WHEEL
       cancelTaps(event)
       listener.onShortcutsSwipe()
